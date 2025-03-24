@@ -1,6 +1,7 @@
 use bcrypt::verify;
 use chrono::{Duration, Utc};
 use dotenvy::dotenv;
+use jsonwebtoken::errors::Error;
 use jsonwebtoken::{EncodingKey, Header, encode};
 use postgres::{Client, NoTls};
 use serde::{Deserialize, Serialize};
@@ -24,6 +25,12 @@ struct Response {
 struct Claims {
     sub: String,
     exp: usize,
+}
+
+enum AuthDatabaseError {
+    CONNECTION,
+    QUERY,
+    NULL,
 }
 
 const OK_RESPONSE: &str = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n";
@@ -66,7 +73,7 @@ fn handle_client(mut stream: TcpStream) {
     }
 }
 
-fn create_jwt(user: User) -> String {
+fn create_jwt(user: User) -> Result<String, Error> {
     let private_key = get_private_key();
     let expiration = Utc::now()
         .checked_add_signed(Duration::hours(24)) // Token valid for 24 hours
@@ -83,32 +90,29 @@ fn create_jwt(user: User) -> String {
         &claims,
         &private_key,
     )
-    .expect("Failed to generate jwt")
 }
 
-fn check_db(user_login: User) -> Result<User, &'static str> {
-    match Client::connect(&get_db_url(), NoTls) {
-        Ok(mut client) => {
-            match client.query_one(
-                "SELECT * FROM users WHERE username = $1",
-                &[&user_login.username],
-            ) {
-                Ok(row) => {
-                    let user = User {
-                        id: row.get(0),
-                        username: row.get(1),
-                        password: row.get(2),
-                    };
-                    if verify(user_login.password, &user.password).unwrap_or(false) {
-                        Ok(user)
-                    } else {
-                        Err("Invalid Password")
-                    }
-                }
-                Err(_) => Err("failed to get user"),
-            }
-        }
-        Err(_) => Err("failed to connect"),
+fn check_db(user_login: User) -> Result<User, AuthDatabaseError> {
+    let mut client = match Client::connect(&get_db_url(), NoTls) {
+        Ok(client) => client,
+        Err(_) => return Err(AuthDatabaseError::CONNECTION),
+    };
+    let row = match client.query_one(
+        "SELECT * FROM users WHERE username = $1",
+        &[&user_login.username],
+    ) {
+        Ok(row) => row,
+        Err(_) => return Err(AuthDatabaseError::QUERY),
+    };
+    let user = User {
+        id: row.get(0),
+        username: row.get(1),
+        password: row.get(2),
+    };
+    if verify(user_login.password, &user.password).unwrap_or(false) {
+        Ok(user)
+    } else {
+        Err(AuthDatabaseError::NULL)
     }
 }
 
@@ -117,20 +121,43 @@ fn get_user_request_body(request: &str) -> Result<User, serde_json::Error> {
 }
 
 fn handle_post_request(request: &str) -> (String, String) {
-    match get_user_request_body(&request) {
-        Ok(user) => match check_db(user) {
-            Ok(user) => {
-                let token = create_jwt(user);
-                let response = Response { token };
-                (
-                    OK_RESPONSE.to_string(),
-                    serde_json::to_string(&response).unwrap(),
-                )
+    let req_user = match get_user_request_body(&request) {
+        Ok(user) => user,
+        Err(_) => return (NOT_FOUND.to_string(), "body not valid".to_string()),
+    };
+    let user_db = match check_db(req_user) {
+        Ok(user) => user,
+        Err(why) => match why {
+            AuthDatabaseError::CONNECTION => {
+                println!("Failed connect to db");
+                return (INTERNAL_ERROR.to_string(), "".to_string());
             }
-            Err(e) => (UNATHORIZED.to_string(), e.to_string()),
+            AuthDatabaseError::QUERY => {
+                println!("Failed query to db");
+                return (INTERNAL_ERROR.to_string(), "".to_string());
+            }
+            AuthDatabaseError::NULL => {
+                println!("User not found");
+                return (UNATHORIZED.to_string(), "Unauthorized".to_string());
+            }
         },
-        Err(_) => (NOT_FOUND.to_string(), "body not valid".to_string()),
-    }
+    };
+    let token = match create_jwt(user_db) {
+        Ok(token) => token,
+        Err(_) => {
+            println!("jwt error");
+            return (INTERNAL_ERROR.to_string(), "".to_string());
+        }
+    };
+    let response = Response { token };
+    let response_json = match serde_json::to_string(&response) {
+        Ok(json) => json,
+        Err(_) => {
+            println!("serde error");
+            return (INTERNAL_ERROR.to_string(), "".to_string());
+        }
+    };
+    (OK_RESPONSE.to_string(), response_json)
 }
 
 fn get_private_key() -> EncodingKey {
