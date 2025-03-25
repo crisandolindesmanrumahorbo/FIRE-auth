@@ -1,10 +1,10 @@
 use bcrypt::verify;
 use chrono::{Duration, Utc};
 use dotenvy::dotenv;
-use jsonwebtoken::errors::Error;
 use jsonwebtoken::{EncodingKey, Header, encode};
 use postgres::{Client, NoTls};
 use serde::{Deserialize, Serialize};
+use std::env::VarError;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::{env, thread};
@@ -73,8 +73,8 @@ fn handle_client(mut stream: TcpStream) {
     }
 }
 
-fn create_jwt(user: User) -> Result<String, Error> {
-    let private_key = get_private_key();
+fn create_jwt(user: User) -> Result<String, &'static str> {
+    let private_key = get_private_key()?;
     let expiration = Utc::now()
         .checked_add_signed(Duration::hours(24)) // Token valid for 24 hours
         .expect("Invalid timestamp")
@@ -85,15 +85,26 @@ fn create_jwt(user: User) -> Result<String, Error> {
         exp: expiration,
     };
 
-    encode(
+    let encoding_key = match encode(
         &Header::new(jsonwebtoken::Algorithm::RS256),
         &claims,
         &private_key,
-    )
+    ) {
+        Ok(ek) => ek,
+        Err(_) => return Err("Encode Error"),
+    };
+    Ok(encoding_key)
 }
 
 fn check_db(user_login: User) -> Result<User, AuthDatabaseError> {
-    let mut client = match Client::connect(&get_db_url(), NoTls) {
+    let url = match get_db_url() {
+        Ok(url) => url,
+        Err(e) => {
+            print!("Missing DATABASE_URL {}", e);
+            return Err(AuthDatabaseError::CONNECTION);
+        }
+    };
+    let mut client = match Client::connect(&url, NoTls) {
         Ok(client) => client,
         Err(_) => return Err(AuthDatabaseError::CONNECTION),
     };
@@ -144,8 +155,8 @@ fn handle_post_request(request: &str) -> (String, String) {
     };
     let token = match create_jwt(user_db) {
         Ok(token) => token,
-        Err(_) => {
-            println!("jwt error");
+        Err(e) => {
+            println!("Error :{}", e);
             return (INTERNAL_ERROR.to_string(), "".to_string());
         }
     };
@@ -160,14 +171,24 @@ fn handle_post_request(request: &str) -> (String, String) {
     (OK_RESPONSE.to_string(), response_json)
 }
 
-fn get_private_key() -> EncodingKey {
+fn get_private_key() -> Result<EncodingKey, &'static str> {
     dotenv().ok();
-    let key = env::var("JWT_PRIVATE_KEY").expect("Missing JWT_PRIVATE_KEY");
-    EncodingKey::from_rsa_pem(key.replace("\\n", "\n").as_bytes()).expect("Invalid private key")
+    let key = match env::var("JWT_PRIVATE_KEY") {
+        Ok(key) => key,
+        Err(_) => {
+            return Err("Missing JWT_PRIVATE_KEY");
+        }
+    };
+    let enc_key = match EncodingKey::from_rsa_pem(key.replace("\\n", "\n").as_bytes()) {
+        Ok(key) => key,
+        Err(_) => {
+            return Err("Encoding Key error");
+        }
+    };
+    Ok(enc_key)
 }
 
-fn get_db_url() -> String {
+fn get_db_url() -> Result<String, VarError> {
     dotenv().ok();
-    let key = env::var("DATABASE_URL").expect("Missing DATABASE_URL");
-    key
+    Ok(env::var("DATABASE_URL")?)
 }
