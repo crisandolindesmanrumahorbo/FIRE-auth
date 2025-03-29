@@ -44,6 +44,7 @@ pub fn login(request: &str) -> (String, String) {
             return (INTERNAL_ERROR.to_string(), "".to_string());
         }
     };
+    println!("succeed login");
     (OK_RESPONSE.to_string(), response_json)
 }
 
