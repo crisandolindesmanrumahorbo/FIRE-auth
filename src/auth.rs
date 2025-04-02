@@ -9,6 +9,7 @@ mod database;
 mod jwt;
 mod model;
 use bcrypt::verify;
+use postgres::error::SqlState;
 
 pub fn login(request: &str) -> (String, String) {
     let req_user = match serde_json::from_str(&request.split("\r\n\r\n").last().unwrap_or_default())
@@ -70,15 +71,33 @@ pub fn register(request: &str) -> (String, String) {
         password: hash(req_user.password, DEFAULT_COST).unwrap(),
         id: None,
     };
-    match database::insert_db_user(new_user) {
+    match database::insert_db_user(&new_user) {
         Ok(_) => (NO_CONTENT.to_string(), "".to_string()),
-        Err(e) => match e {
-            database::AuthDatabaseError::NULL => (INTERNAL_ERROR.to_string(), "".to_string()),
-            database::AuthDatabaseError::DuplicateKey => (
-                BAD_REQUEST.to_string(),
-                "User already registered".to_string(),
-            ),
-            _ => (INTERNAL_ERROR.to_string(), "".to_string()),
+        Err(err) => match err {
+            CustomError::DBInsertError(cu) => {
+                if let Some(code) = cu.code() {
+                    match code {
+                        &SqlState::UNIQUE_VIOLATION => {
+                            println!("User {} already registered", new_user.username);
+                            return (
+                                BAD_REQUEST.to_string(),
+                                "User already registered".to_string(),
+                            );
+                        }
+                        error => {
+                            eprintln!("Error insert user db: {:#?}", error);
+                            (INTERNAL_ERROR.to_string(), "".to_string())
+                        }
+                    }
+                } else {
+                    eprintln!("Error insert without sqlstate: {:#?}", cu);
+                    (INTERNAL_ERROR.to_string(), "".to_string())
+                }
+            }
+            error => {
+                eprintln!("Error insert user db: {:#?}", error);
+                (INTERNAL_ERROR.to_string(), "".to_string())
+            }
         },
     }
 }
