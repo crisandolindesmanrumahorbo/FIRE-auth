@@ -12,3 +12,5 @@ postgres = "0.19.10"
 dotenvy = "0.15.7"
 bcrypt = "0.17.0"
 chrono = "0.4.40"
+thiserror = "2.0.12"
+anyhow = { version = "1.0", default-features = false }
