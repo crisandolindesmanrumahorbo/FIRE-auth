@@ -1,42 +1,46 @@
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
-use std::thread;
-
-use stockbit_auth::auth::{login, register};
+use anyhow::{Context, Result};
+use stockbit_auth::auth::{self, login, register};
 use stockbit_auth::constants::NOT_FOUND;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
 
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7879").unwrap();
+#[tokio::main(flavor = "multi_thread")]
+async fn main() -> Result<()> {
+    // init DB_POOL
+    let pool = auth::database::get_db_pool().await;
+
+    let listener = TcpListener::bind("127.0.0.1:7879")
+        .await
+        .context("Failed to bind to port")?;
     println!("Server running on http://127.0.0.1:7879");
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                thread::spawn(move || handle_client(stream));
+    loop {
+        auth::database::print_pool_stats(pool).await;
+        let (stream, _) = listener.accept().await.context("failed to accept")?;
+        tokio::spawn(async move {
+            if let Err(e) = handle_client(stream).await {
+                eprintln!("Connection error: {}", e);
             }
-            Err(err) => println!("unable to connect: {}", err),
-        }
+        });
     }
 }
 
-fn handle_client(mut stream: TcpStream) {
+async fn handle_client(mut stream: TcpStream) -> Result<()> {
     let mut buffer = [0; 1024];
-    let mut request = String::new();
+    let size = stream
+        .read(&mut buffer)
+        .await
+        .context("Failed to read stream")?;
+    let request = String::from_utf8_lossy(&buffer[..size]);
 
-    match stream.read(&mut buffer) {
-        Ok(size) => {
-            request.push_str(String::from_utf8_lossy(&buffer[..size]).as_ref());
+    let (status_line, content) = match &*request {
+        r if r.starts_with("POST /login") => login(r).await,
+        r if r.starts_with("POST /register") => register(r).await,
+        _ => (NOT_FOUND.to_string(), "404 Not Found".to_string()),
+    };
 
-            let (status_line, content) = match &*request {
-                r if r.starts_with("POST /login") => login(r),
-                r if r.starts_with("POST /register") => register(r),
-                _ => (NOT_FOUND.to_string(), "404 Not Found".to_string()),
-            };
-
-            stream
-                .write_all(format!("{}{}", status_line, content).as_bytes())
-                .unwrap();
-        }
-        Err(e) => eprintln!("Unable to read stream: {}", e),
-    }
+    stream
+        .write_all(format!("{}{}", status_line, content).as_bytes())
+        .await
+        .context("Failed to write")
 }

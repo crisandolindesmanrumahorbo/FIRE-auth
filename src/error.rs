@@ -8,14 +8,14 @@ pub enum CustomError {
     #[error("Error encode private key")]
     EncodeError(#[source] jsonwebtoken::errors::Error),
 
-    #[error("Database connection")]
-    DBConnectionError(#[source] postgres::Error),
+    #[error("Database error")]
+    DBError(#[from] sqlx::Error),
+    
+    #[error("User not found")]
+    UserNotFound,
 
-    #[error("Database query")]
-    DBQueryError(#[source] postgres::Error),
-
-    #[error("Database insert")]
-    DBInsertError(#[source] postgres::Error),
+    #[error("Username already exists")]
+    UsernameExists,
 }
 
 impl Debug for CustomError {

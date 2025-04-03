@@ -2,29 +2,23 @@ use crate::{
     constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, NOT_FOUND, OK_RESPONSE, UNAUTHORIZED},
     error::CustomError,
 };
-use bcrypt::{DEFAULT_COST, hash};
 use jwt::create_jwt;
 use model::{Claims, Response, User};
-mod database;
+pub mod database;
 mod jwt;
 mod model;
-use bcrypt::verify;
-use postgres::error::SqlState;
+use bcrypt::{DEFAULT_COST, hash, verify};
 
-pub fn login(request: &str) -> (String, String) {
+pub async fn login(request: &str) -> (String, String) {
     let req_user = match serde_json::from_str(&request.split("\r\n\r\n").last().unwrap_or_default())
     {
         Ok(user) => user,
         Err(_) => return (NOT_FOUND.to_string(), "body not valid".to_string()),
     };
-    let user_db = match database::check_user_db(&req_user) {
+    let user_db = match database::query_user(&req_user).await {
         Ok(user) => user,
         Err(why) => match why {
-            CustomError::DBQueryError(error) => {
-                if error.code().is_some() {
-                    eprintln!("Error user db: {:#?}", error);
-                    return (UNAUTHORIZED.to_string(), "".to_string());
-                }
+            CustomError::UserNotFound => {
                 println!("User {} not found", req_user.username);
                 return (UNAUTHORIZED.to_string(), "".to_string());
             }
@@ -59,7 +53,7 @@ pub fn login(request: &str) -> (String, String) {
     (OK_RESPONSE.to_string(), response_json)
 }
 
-pub fn register(request: &str) -> (String, String) {
+pub async fn register(request: &str) -> (String, String) {
     let req_user: User =
         match serde_json::from_str(&request.split("\r\n\r\n").last().unwrap_or_default()) {
             Ok(user) => user,
@@ -71,28 +65,12 @@ pub fn register(request: &str) -> (String, String) {
         password: hash(req_user.password, DEFAULT_COST).expect("generate password failed"),
         id: None,
     };
-    match database::insert_db_user(&new_user) {
+    match database::insert_user(&new_user).await {
         Ok(_) => (NO_CONTENT.to_string(), "".to_string()),
         Err(err) => match err {
-            CustomError::DBInsertError(cu) => {
-                if let Some(code) = cu.code() {
-                    match code {
-                        &SqlState::UNIQUE_VIOLATION => {
-                            println!("User {} already registered", new_user.username);
-                            return (
-                                BAD_REQUEST.to_string(),
-                                "User already registered".to_string(),
-                            );
-                        }
-                        error => {
-                            eprintln!("Error insert user db: {:#?}", error);
-                            (INTERNAL_ERROR.to_string(), "".to_string())
-                        }
-                    }
-                } else {
-                    eprintln!("Error insert without sqlstate: {:#?}", cu);
-                    (INTERNAL_ERROR.to_string(), "".to_string())
-                }
+            CustomError::UsernameExists => {
+                eprintln!("Error insert: {:#?}", err);
+                (BAD_REQUEST.to_string(), "".to_string())
             }
             error => {
                 eprintln!("Error insert user db: {:#?}", error);
