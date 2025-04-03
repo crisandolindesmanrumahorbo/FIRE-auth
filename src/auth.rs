@@ -1,12 +1,12 @@
+pub mod database;
+mod jwt;
+mod model;
 use crate::{
     constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, NOT_FOUND, OK_RESPONSE, UNAUTHORIZED},
     error::CustomError,
 };
 use jwt::create_jwt;
 use model::{Claims, Response, User};
-pub mod database;
-mod jwt;
-mod model;
 use bcrypt::{DEFAULT_COST, hash, verify};
 
 pub async fn login(request: &str) -> (String, String) {

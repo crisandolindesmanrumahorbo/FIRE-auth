@@ -1,17 +1,13 @@
 use crate::auth::Claims;
 use crate::auth::User;
+use crate::config::CONFIG;
 use crate::error::CustomError;
 use anyhow::{Context, Result};
 use chrono::{Duration, Utc};
-use dotenvy::dotenv;
 use jsonwebtoken::{EncodingKey, Header, encode};
-use std::env;
 
-pub fn get_private_key() -> Result<EncodingKey, CustomError> {
-    dotenv().ok();
-    let key = env::var("JWT_PRIVATE_KEY")
-        .map_err(|e| CustomError::EnvError("JWT_PRIVATE_KEY".to_string(), e))?;
-    let enc_key = EncodingKey::from_rsa_pem(key.replace("\\n", "\n").as_bytes())
+fn get_private_key() -> Result<EncodingKey, CustomError> {
+    let enc_key = EncodingKey::from_rsa_pem(CONFIG.jwt_private_key.replace("\\n", "\n").as_bytes())
         .map_err(|e| CustomError::EncodeError(e))?;
     Ok(enc_key)
 }

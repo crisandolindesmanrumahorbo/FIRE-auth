@@ -1,21 +1,25 @@
 use anyhow::{Context, Result};
 use stockbit_auth::auth::{self, login, register};
+use stockbit_auth::config;
 use stockbit_auth::constants::NOT_FOUND;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
+    // init config
+    config::init_config();
+
     // init DB_POOL
-    let pool = auth::database::get_db_pool().await;
+    let db_pool = auth::database::get_db_pool().await;
 
     let listener = TcpListener::bind("127.0.0.1:7879")
         .await
-        .context("Failed to bind to port")?;
+        .expect("Failed to bind to port");
     println!("Server running on http://127.0.0.1:7879");
 
     loop {
-        auth::database::print_pool_stats(pool).await;
+        auth::database::print_pool_stats(db_pool).await;
         let (stream, _) = listener.accept().await.context("failed to accept")?;
         tokio::spawn(async move {
             if let Err(e) = handle_client(stream).await {

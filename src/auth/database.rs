@@ -1,20 +1,15 @@
-use crate::{auth::model::User, error::CustomError};
-use dotenvy::dotenv;
+use crate::{auth::model::User, config::CONFIG, error::CustomError};
 use sqlx::{PgPool, postgres::PgPoolOptions, query_as};
-use std::env;
 use tokio::sync::OnceCell;
 
 static DB_POOL: OnceCell<PgPool> = OnceCell::const_new();
 
 async fn init_db_pool() -> PgPool {
-    dotenv().ok();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
     PgPoolOptions::new()
         .max_connections(10)
         .min_connections(5)
         .idle_timeout(std::time::Duration::from_secs(30))
-        .connect(&database_url)
+        .connect(&CONFIG.database_url)
         .await
         .expect("Failed to create DB pool")
 }

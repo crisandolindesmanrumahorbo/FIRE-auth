@@ -28,7 +28,7 @@ impl Debug for CustomError {
     }
 }
 
-// code above equivalent with this
+// code above equivalent with:
 // pub enum CustomError {
 //     EnvError(String, std::env::VarError),
 //     EncodeError(jsonwebtoken::errors::Error),
