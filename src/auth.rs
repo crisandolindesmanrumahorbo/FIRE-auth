@@ -63,12 +63,12 @@ pub fn register(request: &str) -> (String, String) {
     let req_user: User =
         match serde_json::from_str(&request.split("\r\n\r\n").last().unwrap_or_default()) {
             Ok(user) => user,
-            Err(_) => return (BAD_REQUEST.to_string(), "body not valid".to_string()),
+            Err(_) => return (BAD_REQUEST.to_string(), "invalid body".to_string()),
         };
 
     let new_user = User {
         username: req_user.username,
-        password: hash(req_user.password, DEFAULT_COST).unwrap(),
+        password: hash(req_user.password, DEFAULT_COST).expect("generate password failed"),
         id: None,
     };
     match database::insert_db_user(&new_user) {
