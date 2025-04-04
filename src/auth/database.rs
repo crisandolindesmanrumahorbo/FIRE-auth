@@ -1,11 +1,12 @@
 use crate::{auth::model::User, config::CONFIG, error::CustomError};
-use sqlx::{PgPool, postgres::PgPoolOptions, query_as};
+use sqlx::{any::{install_default_drivers, AnyPoolOptions}, query_as, AnyPool};
 use tokio::sync::OnceCell;
 
-static DB_POOL: OnceCell<PgPool> = OnceCell::const_new();
+static DB_POOL: OnceCell<AnyPool> = OnceCell::const_new();
 
-async fn init_db_pool() -> PgPool {
-    PgPoolOptions::new()
+async fn init_db_pool() -> AnyPool {
+    install_default_drivers();
+    AnyPoolOptions::new()
         .max_connections(10)
         .min_connections(5)
         .idle_timeout(std::time::Duration::from_secs(30))
@@ -14,11 +15,11 @@ async fn init_db_pool() -> PgPool {
         .expect("Failed to create DB pool")
 }
 
-pub async fn get_db_pool() -> &'static PgPool {
+pub async fn get_db_pool() -> &'static AnyPool {
     DB_POOL.get_or_init(|| async { init_db_pool().await }).await
 }
 
-pub async fn print_pool_stats(pool: &PgPool) {
+pub async fn print_pool_stats(pool: &AnyPool) {
     println!("[DB POOL STATS]");
     println!("Total connections: {}", pool.size());
     println!("Idle connections: {}", pool.num_idle());

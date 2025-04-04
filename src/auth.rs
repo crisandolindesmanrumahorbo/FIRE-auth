@@ -1,17 +1,14 @@
 pub mod database;
-mod jwt;
-mod model;
+pub mod model;
 use crate::{
-    constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, NOT_FOUND, OK_RESPONSE, UNAUTHORIZED},
+    constants::{BAD_REQUEST, INTERNAL_ERROR, NOT_FOUND, NO_CONTENT, OK_RESPONSE, UNAUTHORIZED},
     error::CustomError,
+    utils::{compare, create_jwt, des_from_str, encrypt, ser_to_str},
 };
-use jwt::create_jwt;
-use model::{Claims, Response, User};
-use bcrypt::{DEFAULT_COST, hash, verify};
+use model::{Response, User};
 
 pub async fn login(request: &str) -> (String, String) {
-    let req_user = match serde_json::from_str(&request.split("\r\n\r\n").last().unwrap_or_default())
-    {
+    let req_user = match des_from_str(request) {
         Ok(user) => user,
         Err(_) => return (NOT_FOUND.to_string(), "body not valid".to_string()),
     };
@@ -29,9 +26,9 @@ pub async fn login(request: &str) -> (String, String) {
         },
     };
 
-    if !verify(req_user.password, &user_db.password).unwrap_or(false) {
+    if !compare(&req_user.password, &user_db.password) {
         println!("User {} wrong password", req_user.username);
-        return (UNAUTHORIZED.to_string(), "".to_string());
+        return (UNAUTHORIZED.to_string(), "Username or password is incorrect".to_string());
     }
 
     let token = match create_jwt(user_db) {
@@ -42,7 +39,7 @@ pub async fn login(request: &str) -> (String, String) {
         }
     };
     let response = Response { token };
-    let response_json = match serde_json::to_string(&response) {
+    let response_json = match ser_to_str(&response) {
         Ok(json) => json,
         Err(_) => {
             println!("serde error");
@@ -54,15 +51,14 @@ pub async fn login(request: &str) -> (String, String) {
 }
 
 pub async fn register(request: &str) -> (String, String) {
-    let req_user: User =
-        match serde_json::from_str(&request.split("\r\n\r\n").last().unwrap_or_default()) {
-            Ok(user) => user,
-            Err(_) => return (BAD_REQUEST.to_string(), "invalid body".to_string()),
-        };
+    let req_user: User = match des_from_str(request) {
+        Ok(user) => user,
+        Err(_) => return (BAD_REQUEST.to_string(), "invalid body".to_string()),
+    };
 
     let new_user = User {
         username: req_user.username,
-        password: hash(req_user.password, DEFAULT_COST).expect("generate password failed"),
+        password: encrypt(&req_user.password),
         id: None,
     };
     match database::insert_user(&new_user).await {
