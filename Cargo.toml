@@ -19,4 +19,5 @@ sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "tls-native-t
 
 [dev-dependencies]
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "tls-native-tls", "macros", "any"] }
+rand = "0.8.5"
 

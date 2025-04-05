@@ -1,20 +1,20 @@
-use dotenvy::from_filename;
+use rand::Rng;
 use sqlx::{AnyPool, any::install_default_drivers};
-use std::env;
 
 pub async fn setup_test_db() -> AnyPool {
-    from_filename(".env.test").ok();
-    let env_db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
     install_default_drivers();
-    let pool = AnyPool::connect(&env_db_url)
+    let timestamp: String = rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(7)
+        .map(char::from)
+        .collect();
+    let db_name = format!("test_{}", timestamp);
+    let database_url = format!("sqlite:file:{}?mode=memory&cache=shared", db_name);
+
+    // Create the pool (which will internally use shared memory DB)
+    let pool = AnyPool::connect(&database_url)
         .await
         .expect("Failed to create in-memory SQLite DB");
-
-    sqlx::query("DROP TABLE IF EXISTS users;")
-        .execute(&pool)
-        .await
-        .expect("Failed to drop test table");
 
     sqlx::query(
         "
@@ -29,6 +29,7 @@ pub async fn setup_test_db() -> AnyPool {
     .await
     .expect("Failed to create test table");
 
-    println!("✅ Test database setup complete.");
+    println!("✅ Pool created with unique DB: {}", db_name);
+
     pool
 }

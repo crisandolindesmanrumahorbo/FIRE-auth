@@ -1648,6 +1648,7 @@ dependencies = [
  "dotenvy",
  "jsonwebtoken",
  "once_cell",
+ "rand",
  "rsa",
  "serde",
  "serde_json",

@@ -1,13 +1,18 @@
-use bcrypt::{DEFAULT_COST, hash, verify};
-use serde::{Deserialize, Serialize};
-use auth::model::Claims;
-use auth::model::User;
 use crate::auth;
 use crate::config::CONFIG;
 use crate::error::CustomError;
 use anyhow::{Context, Result};
+use auth::model::User;
+use bcrypt::{DEFAULT_COST, hash, verify};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{EncodingKey, Header, encode};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    pub sub: String,
+    pub exp: usize,
+}
 
 pub fn des_from_str<T: for<'a> Deserialize<'a> + Serialize>(string: &str) -> Result<T, ()> {
     serde_json::from_str(&string.split("\r\n\r\n").last().unwrap_or_default()).map_err(|_| ())
@@ -26,7 +31,6 @@ pub fn encrypt(value: &str) -> String {
 pub fn compare(value: &str, value1: &str) -> bool {
     verify(value, value1).unwrap_or(false)
 }
-
 
 fn get_private_key() -> Result<EncodingKey, CustomError> {
     let enc_key = EncodingKey::from_rsa_pem(CONFIG.jwt_private_key.replace("\\n", "\n").as_bytes())
