@@ -3,12 +3,12 @@ use sqlx::{AnyPool, any::install_default_drivers};
 
 pub async fn setup_test_db() -> AnyPool {
     install_default_drivers();
-    let timestamp: String = rand::thread_rng()
+    let rand_str: String = rand::thread_rng()
         .sample_iter(&rand::distributions::Alphanumeric)
         .take(7)
         .map(char::from)
         .collect();
-    let db_name = format!("test_{}", timestamp);
+    let db_name = format!("test_{}", rand_str);
     let database_url = format!("sqlite:file:{}?mode=memory&cache=shared", db_name);
 
     // Create the pool (which will internally use shared memory DB)
@@ -32,4 +32,18 @@ pub async fn setup_test_db() -> AnyPool {
     println!("✅ Pool created with unique DB: {}", db_name);
 
     pool
+}
+
+pub async fn insert_db_user(username: &str, password: &str, pool: &AnyPool) {
+    sqlx::query(
+        r#"
+            INSERT INTO users (username, password) 
+            VALUES ($1, $2) 
+            RETURNING id"#,
+    )
+    .bind(username)
+    .bind(password)
+    .execute(pool)
+    .await
+    .expect("Failed to insert test user");
 }
