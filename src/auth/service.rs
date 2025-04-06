@@ -93,7 +93,6 @@ impl AuthService {
     }
 
     pub fn validate(&self, r: &str) -> (String, String) {
-        println!("{}", r);
         let token = match extract_token(&r) {
             Some(token) => token,
             None => {
