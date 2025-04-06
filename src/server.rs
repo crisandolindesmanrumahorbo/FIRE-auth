@@ -44,6 +44,7 @@ impl Server {
         let (status_line, content) = match &*request {
             r if r.starts_with("POST /login") => auth_controller.login(r).await,
             r if r.starts_with("POST /register") => auth_controller.register(r).await,
+            r if r.starts_with("POST /validate") => auth_controller.validate(r),
             _ => (NOT_FOUND.to_string(), "404 Not Found".to_string()),
         };
 

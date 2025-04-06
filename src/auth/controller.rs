@@ -16,4 +16,8 @@ impl AuthController {
     pub async fn register(&self, request: &str) -> (String, String) {
         self.service.register(request).await
     }
+
+    pub fn validate(&self, request: &str) -> (String, String) {
+        self.service.validate(request)
+    }
 }

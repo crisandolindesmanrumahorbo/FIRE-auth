@@ -2,7 +2,7 @@ use super::repository::AuthRepository;
 use crate::{
     constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, NOT_FOUND, OK_RESPONSE, UNAUTHORIZED},
     error::CustomError,
-    utils::{compare, create_jwt, des_from_str, encrypt, ser_to_str},
+    utils::{compare, create_jwt, des_from_str, encrypt, extract_token, ser_to_str, verify_jwt},
 };
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -89,6 +89,24 @@ impl AuthService {
                     (INTERNAL_ERROR.to_string(), "".to_string())
                 }
             },
+        }
+    }
+
+    pub fn validate(&self, r: &str) -> (String, String) {
+        println!("{}", r);
+        let token = match extract_token(&r) {
+            Some(token) => token,
+            None => {
+                return (UNAUTHORIZED.to_string(), "".to_string());
+            }
+        };
+
+        match verify_jwt(&token) {
+            Ok(_) => return (OK_RESPONSE.to_string(), "".to_string()),
+            Err(err) => {
+                println!("Verification failed: {}", err);
+                return (UNAUTHORIZED.to_string(), "".to_string());
+            }
         }
     }
 }

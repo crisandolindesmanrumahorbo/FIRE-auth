@@ -7,9 +7,9 @@ use bcrypt::{DEFAULT_COST, hash, verify};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
-
+use regex::Regex;
 #[derive(Debug, Serialize, Deserialize)]
-struct Claims {
+pub struct Claims {
     pub sub: String,
     pub exp: usize,
 }
@@ -41,7 +41,7 @@ fn get_private_key() -> Result<EncodingKey, CustomError> {
 pub fn create_jwt(user: User) -> Result<String> {
     let private_key = get_private_key().context("Failed Get Private Key")?;
     let expiration = Utc::now()
-        .checked_add_signed(Duration::hours(24)) // Token valid for 24 hours
+        .checked_add_signed(Duration::minutes(1)) // Token valid for 24 hours
         .expect("Invalid timestamp")
         .timestamp() as usize;
 
@@ -56,4 +56,34 @@ pub fn create_jwt(user: User) -> Result<String> {
         &private_key,
     )
     .context("Failed to Encode the JWT")
+}
+
+pub fn extract_token(r: &str) -> Option<String> {
+    static AUTH_REGEX: once_cell::sync::Lazy<Regex> =
+        once_cell::sync::Lazy::new(|| Regex::new(r"(?i)^authorization:\s*bearer\s+(?P<token>[^\s]+)").unwrap());
+
+    r.lines().find_map(|line| {
+        AUTH_REGEX
+            .captures(line.trim())
+            .and_then(|caps| caps.name("token"))
+            .map(|m| m.as_str().to_string())
+    })
+}
+
+pub fn verify_jwt(token: &str) -> Result<String, &'static str> {
+    let public_key = jsonwebtoken::DecodingKey::from_rsa_pem(
+        &CONFIG.jwt_public_key.replace("\\n", "\n").as_bytes(),
+    )
+    .expect("Invalid public key");
+    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::RS256);
+    validation.validate_exp = true;
+    validation.validate_aud = false;
+
+    let token_data = jsonwebtoken::decode::<crate::utils::Claims>(token, &public_key, &validation)
+        .map_err(|e| {
+            println!("JWT error: {:?}", e);
+            "Invalid token"
+        })?;
+
+    Ok(token_data.claims.sub)
 }
