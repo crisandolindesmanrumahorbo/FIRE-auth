@@ -1,5 +1,5 @@
-use crate::auth;
-use crate::config::CONFIG;
+use crate::config::AUTH_REGEX;
+use crate::{auth, config::get_config};
 use crate::error::CustomError;
 use anyhow::{Context, Result};
 use auth::model::User;
@@ -7,7 +7,6 @@ use bcrypt::{DEFAULT_COST, hash, verify};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
-use regex::Regex;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
@@ -33,7 +32,7 @@ pub fn compare(value: &str, value1: &str) -> bool {
 }
 
 fn get_private_key() -> Result<EncodingKey, CustomError> {
-    let enc_key = EncodingKey::from_rsa_pem(CONFIG.jwt_private_key.replace("\\n", "\n").as_bytes())
+    let enc_key = EncodingKey::from_rsa_pem(get_config().jwt_private_key.replace("\\n", "\n").as_bytes())
         .map_err(|e| CustomError::EncodeError(e))?;
     Ok(enc_key)
 }
@@ -59,9 +58,6 @@ pub fn create_jwt(user: User) -> Result<String> {
 }
 
 pub fn extract_token(r: &str) -> Option<String> {
-    static AUTH_REGEX: once_cell::sync::Lazy<Regex> =
-        once_cell::sync::Lazy::new(|| Regex::new(r"(?i)^authorization:\s*bearer\s+(?P<token>[^\s]+)").unwrap());
-
     r.lines().find_map(|line| {
         AUTH_REGEX
             .captures(line.trim())
@@ -72,7 +68,7 @@ pub fn extract_token(r: &str) -> Option<String> {
 
 pub fn verify_jwt(token: &str) -> Result<String, &'static str> {
     let public_key = jsonwebtoken::DecodingKey::from_rsa_pem(
-        &CONFIG.jwt_public_key.replace("\\n", "\n").as_bytes(),
+        get_config().jwt_public_key.replace("\\n", "\n").as_bytes(),
     )
     .expect("Invalid public key");
     let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::RS256);

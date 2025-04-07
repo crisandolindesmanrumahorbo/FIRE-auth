@@ -10,10 +10,10 @@ use stockbit_auth::server::Server;
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     // init config
-    let config = config::init_config();
+    config::init_config();
 
     // init DB
-    let db_pool = Database::new_pool(&config.database_url).await;
+    let db_pool = Database::new_pool(&config::get_config().database_url).await;
 
     let auth_repo = AuthRepository::new(db_pool).await.expect("Error init repo");
     let auth_svc = AuthService::new(auth_repo);

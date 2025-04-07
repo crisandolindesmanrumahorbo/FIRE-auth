@@ -1,24 +1,42 @@
-use std::env;
-
-use dotenvy::dotenv;
-use once_cell::sync::Lazy;
+use std::sync::atomic::{AtomicPtr, Ordering};
+use std::{env, ptr};
 
 pub struct Config {
-    pub jwt_private_key: String,
-    pub jwt_public_key: String,
-    pub database_url: String,
+    pub jwt_private_key: &'static str,
+    pub jwt_public_key: &'static str,
+    pub database_url: &'static str,
 }
 
-pub static CONFIG: Lazy<Config> = Lazy::new(|| {
-    dotenv().ok(); // Load environment variables
+static CONFIG: AtomicPtr<Config> = AtomicPtr::new(ptr::null_mut());
 
-    Config {
-        jwt_private_key: env::var("JWT_PRIVATE_KEY").expect("JWT_PRIVATE_KEY must be set"),
-        jwt_public_key: env::var("JWT_PUBLIC_KEY").expect("JWT_PUBLIC_KEY must be set"),
-        database_url: env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
-    }
+pub fn init_config() {
+    dotenvy::dotenv().ok();
+    let config = Box::new(Config {
+        jwt_private_key: Box::leak(
+            env::var("JWT_PRIVATE_KEY")
+                .expect("JWT_PRIVATE_KEY must be set")
+                .into_boxed_str(),
+        ),
+        jwt_public_key: Box::leak(
+            env::var("JWT_PUBLIC_KEY")
+                .expect("JWT_PUBLIC_KEY must be set")
+                .into_boxed_str(),
+        ),
+        database_url: Box::leak(
+            env::var("DATABASE_URL")
+                .expect("DATABASE_URL must be set")
+                .into_boxed_str(),
+        ),
+    });
+    CONFIG.store(Box::into_raw(config), Ordering::Release);
+}
+
+#[inline]
+pub fn get_config() -> &'static Config {
+    // SAFETY: Initialized at startup before any threads
+    unsafe { &*CONFIG.load(Ordering::Acquire) }
+}
+
+pub static AUTH_REGEX: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+    regex::Regex::new(r"(?i)^authorization:\s*bearer\s+(?P<token>[^\s]+)").expect("Failed generate regex")
 });
-
-pub fn init_config() -> &'static Config {
-    &CONFIG
-}
