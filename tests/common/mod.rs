@@ -2,6 +2,7 @@ use rand::Rng;
 use sqlx::{AnyPool, any::install_default_drivers};
 
 pub async fn setup_test_db() -> AnyPool {
+    stockbit_auth::config::init_config();
     install_default_drivers();
     let rand_str: String = rand::thread_rng()
         .sample_iter(&rand::distributions::Alphanumeric)

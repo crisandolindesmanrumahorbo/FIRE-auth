@@ -36,7 +36,3 @@ pub fn get_config() -> &'static Config {
     // SAFETY: Initialized at startup before any threads
     unsafe { &*CONFIG.load(Ordering::Acquire) }
 }
-
-pub static AUTH_REGEX: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
-    regex::Regex::new(r"(?i)^authorization:\s*bearer\s+(?P<token>[^\s]+)").expect("Failed generate regex")
-});

@@ -1,6 +1,5 @@
-use crate::config::AUTH_REGEX;
-use crate::{auth, config::get_config};
 use crate::error::CustomError;
+use crate::{auth, config::get_config};
 use anyhow::{Context, Result};
 use auth::model::User;
 use bcrypt::{DEFAULT_COST, hash, verify};
@@ -32,8 +31,9 @@ pub fn compare(value: &str, value1: &str) -> bool {
 }
 
 fn get_private_key() -> Result<EncodingKey, CustomError> {
-    let enc_key = EncodingKey::from_rsa_pem(get_config().jwt_private_key.replace("\\n", "\n").as_bytes())
-        .map_err(|e| CustomError::EncodeError(e))?;
+    let enc_key =
+        EncodingKey::from_rsa_pem(get_config().jwt_private_key.replace("\\n", "\n").as_bytes())
+            .map_err(|e| CustomError::EncodeError(e))?;
     Ok(enc_key)
 }
 
@@ -58,6 +58,10 @@ pub fn create_jwt(user: User) -> Result<String> {
 }
 
 pub fn extract_token(r: &str) -> Option<String> {
+    static AUTH_REGEX: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(r"(?i)^authorization:\s*bearer\s+(?P<token>[^\s]+)")
+            .expect("Failed generate regex")
+    });
     r.lines().find_map(|line| {
         AUTH_REGEX
             .captures(line.trim())

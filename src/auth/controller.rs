@@ -5,8 +5,10 @@ pub struct AuthController {
 }
 
 impl AuthController {
-    pub fn new(service: AuthService) -> Self {
-        AuthController { service }
+    pub fn new(pool: sqlx::AnyPool) -> Self {
+        AuthController {
+            service: AuthService::new(super::repository::AuthRepository::new(pool)),
+        }
     }
 
     pub async fn login(&self, request: &str) -> (String, String) {

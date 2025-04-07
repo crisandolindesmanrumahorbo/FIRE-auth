@@ -14,20 +14,30 @@ impl Server {
         Self { auth_controller }
     }
 
-    pub async fn start(&self) -> Result<()> {
-        let listener = TcpListener::bind("127.0.0.1:7879")
-            .await
-            .expect("Failed to bind to port");
+    pub async fn start(&self, mut shutdown_rx: tokio::sync::oneshot::Receiver<()>) -> anyhow::Result<()> {
+        let listener = TcpListener::bind("127.0.0.1:7879").await.expect("failed to binding port");
         println!("Server running on http://127.0.0.1:7879");
+    
         loop {
-            let (stream, _) = listener.accept().await.context("failed to accept")?;
-            let controller = Arc::clone(&self.auth_controller);
-            tokio::spawn(async move {
-                if let Err(e) = Self::handle_client(stream, &controller).await {
-                    eprintln!("Connection error: {}", e);
+            tokio::select! {
+                conn = listener.accept() => {
+                    let (stream, _) = conn?;
+                    let controller = Arc::clone(&self.auth_controller);
+                    
+                    tokio::spawn(async move {
+                        if let Err(e) = Self::handle_client(stream, &controller).await {
+                            eprintln!("Connection error: {}", e);
+                        }
+                    });
                 }
-            });
+                // Shutdown signal check
+                _ = &mut shutdown_rx => {
+                    println!("Shutting down server...");
+                    break;
+                }
+            }
         }
+        Ok(())
     }
 
     async fn handle_client(

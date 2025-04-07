@@ -1,7 +1,7 @@
 use common::{insert_db_user, setup_test_db};
 use stockbit_auth::{
     auth::{
-        controller::AuthController, model::User, repository::AuthRepository, service::AuthService,
+        controller::AuthController, model::User,
     },
     constants::{OK_RESPONSE, UNAUTHORIZED},
     utils::{encrypt, ser_to_str},
@@ -29,9 +29,7 @@ async fn login_user_success() {
         id: None,
     };
     insert_db_user(&auth_user.username, &encrypt(&auth_user.password), &pool).await;
-    let repository = AuthRepository::new(pool).await.expect("Failed create repo");
-    let svc = AuthService::new(repository);
-    let controller = AuthController::new(svc);
+    let controller = AuthController::new(pool);
 
     let response = controller
         .login(&ser_to_str(&auth_user).expect("failed to serialized"))
@@ -48,9 +46,7 @@ async fn login_user_unauthorized_not_registered() {
         password: "hashed_password".to_string(),
         id: None,
     };
-    let repository = AuthRepository::new(pool).await.expect("Failed create repo");
-    let svc = AuthService::new(repository);
-    let controller = AuthController::new(svc);
+    let controller = AuthController::new(pool);
 
     let response = controller
         .login(&ser_to_str(&non_auth_user).expect("failed to serialized"))
@@ -68,9 +64,7 @@ async fn login_user_unauthorized_wrong_password() {
         id: None,
     };
     insert_db_user(&auth_user.username, &encrypt("different password"), &pool).await;
-    let repository = AuthRepository::new(pool).await.expect("Failed create repo");
-    let svc = AuthService::new(repository);
-    let controller = AuthController::new(svc);
+    let controller = AuthController::new(pool);
 
     let response = controller
         .login(&ser_to_str(&auth_user).expect("failed to serialized"))

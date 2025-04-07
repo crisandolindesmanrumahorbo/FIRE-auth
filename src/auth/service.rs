@@ -20,7 +20,7 @@ impl AuthService {
     }
 
     pub async fn login(&self, request: &str) -> (String, String) {
-        self.respository.print_pool_stats().await;
+        self.respository.print_pool_stats();
         let req_user = match des_from_str(request) {
             Ok(user) => user,
             Err(_) => return (NOT_FOUND.to_string(), "body not valid".to_string()),

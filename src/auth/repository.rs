@@ -9,11 +9,11 @@ pub struct AuthRepository {
 }
 
 impl AuthRepository {
-    pub async fn new(pool: sqlx::AnyPool) -> Result<Self> {
-        Ok(AuthRepository { pool })
+    pub fn new(pool: sqlx::AnyPool) -> Self {
+        AuthRepository { pool }
     }
 
-    pub async fn print_pool_stats(&self) {
+    pub fn print_pool_stats(&self) {
         println!("[DB POOL STATS]");
         println!("Total connections: {}", self.pool.size());
         println!("Idle connections: {}", self.pool.num_idle());
