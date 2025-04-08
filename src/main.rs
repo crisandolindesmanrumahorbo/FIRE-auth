@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use sqlx::Pool;
 use stockbit_auth::auth::controller::AuthController;
-use stockbit_auth::config::{self};
-use stockbit_auth::database::Database;
+use stockbit_auth::cfg::{self};
+use stockbit_auth::db::Database;
 use stockbit_auth::server::Server;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::oneshot;
@@ -11,8 +11,8 @@ use tokio::sync::oneshot;
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
     // Init config and DB
-    config::init_config();
-    let db_pool = Database::new_pool(&config::get_config().database_url).await;
+    cfg::init_config();
+    let db_pool = Database::new_pool(&cfg::get_config().database_url).await;
     let auth_controller = Arc::new(AuthController::new(db_pool.clone()));
 
     // Create shutdown channel

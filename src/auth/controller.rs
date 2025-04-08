@@ -1,3 +1,5 @@
+use crate::req::Request;
+
 use super::service::AuthService;
 
 pub struct AuthController {
@@ -19,7 +21,7 @@ impl AuthController {
         self.service.register(request).await
     }
 
-    pub fn validate(&self, request: &str) -> (String, String) {
+    pub fn validate(&self, request: &Request) -> (String, String) {
         self.service.validate(request)
     }
 }

@@ -1,5 +1,5 @@
 use crate::error::CustomError;
-use crate::{auth, config::get_config};
+use crate::{auth, cfg::get_config};
 use anyhow::{Context, Result};
 use auth::model::User;
 use bcrypt::{DEFAULT_COST, hash, verify};
@@ -26,7 +26,7 @@ pub fn encrypt(value: &str) -> String {
     hash(value, DEFAULT_COST).expect("generate password failed")
 }
 
-pub fn compare(value: &str, value1: &str) -> bool {
+pub fn is_password_valid(value: &str, value1: &str) -> bool {
     verify(value, value1).unwrap_or(false)
 }
 
@@ -57,16 +57,15 @@ pub fn create_jwt(user: User) -> Result<String> {
     .context("Failed to Encode the JWT")
 }
 
-pub fn extract_token(r: &str) -> Option<String> {
-    static AUTH_REGEX: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
-        regex::Regex::new(r"(?i)^authorization:\s*bearer\s+(?P<token>[^\s]+)")
-            .expect("Failed generate regex")
-    });
-    r.lines().find_map(|line| {
-        AUTH_REGEX
-            .captures(line.trim())
-            .and_then(|caps| caps.name("token"))
-            .map(|m| m.as_str().to_string())
+pub fn extract_token(
+    headers: &std::collections::HashMap<std::string::String, std::string::String>,
+) -> Option<String> {
+    headers.get("authorization").and_then(|s| {
+        let mut parts = s.split_whitespace();
+        match (parts.next(), parts.next()) {
+            (Some("Bearer"), Some(token)) => Some(token.to_string()),
+            _ => None,
+        }
     })
 }
 

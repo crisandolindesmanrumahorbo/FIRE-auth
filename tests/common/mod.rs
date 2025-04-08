@@ -2,7 +2,10 @@ use rand::Rng;
 use sqlx::{AnyPool, any::install_default_drivers};
 
 pub async fn setup_test_db() -> AnyPool {
-    stockbit_auth::config::init_config();
+    // init config
+    stockbit_auth::cfg::init_config();
+
+    // init db
     install_default_drivers();
     let rand_str: String = rand::thread_rng()
         .sample_iter(&rand::distributions::Alphanumeric)
@@ -11,12 +14,12 @@ pub async fn setup_test_db() -> AnyPool {
         .collect();
     let db_name = format!("test_{}", rand_str);
     let database_url = format!("sqlite:file:{}?mode=memory&cache=shared", db_name);
-
     // Create the pool (which will internally use shared memory DB)
     let pool = AnyPool::connect(&database_url)
         .await
         .expect("Failed to create in-memory SQLite DB");
 
+    // create table
     sqlx::query(
         "
         CREATE TABLE users (

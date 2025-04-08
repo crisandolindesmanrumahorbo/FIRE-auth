@@ -2,7 +2,8 @@ use super::repository::AuthRepository;
 use crate::{
     constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, NOT_FOUND, OK_RESPONSE, UNAUTHORIZED},
     error::CustomError,
-    utils::{compare, create_jwt, des_from_str, encrypt, extract_token, ser_to_str, verify_jwt},
+    req::Request,
+    utils::{is_password_valid, create_jwt, des_from_str, encrypt, extract_token, ser_to_str, verify_jwt},
 };
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -39,7 +40,7 @@ impl AuthService {
             },
         };
 
-        if !compare(&req_user.password, &user_db.password) {
+        if !is_password_valid(&req_user.password, &user_db.password) {
             println!("User {} wrong password", req_user.username);
             return (
                 UNAUTHORIZED.to_string(),
@@ -92,10 +93,11 @@ impl AuthService {
         }
     }
 
-    pub fn validate(&self, r: &str) -> (String, String) {
-        let token = match extract_token(&r) {
+    pub fn validate(&self, request: &Request) -> (String, String) {
+        let token = match extract_token(&request.headers) {
             Some(token) => token,
             None => {
+                println!("Missing Header");
                 return (UNAUTHORIZED.to_string(), "".to_string());
             }
         };
