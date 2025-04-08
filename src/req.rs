@@ -1,6 +1,8 @@
 use anyhow::{Context, Result};
+use tokio::io::{AsyncRead, AsyncReadExt};
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub enum Method {
     GET,
     POST,
@@ -26,7 +28,13 @@ pub struct Request {
 }
 
 impl Request {
-    pub async fn new(request: std::borrow::Cow<'_, str>) -> Result<Self> {
+    pub async fn new<Reader: AsyncRead + Unpin>(mut reader: Reader) -> Result<Self> {
+        let mut buffer = [0; 1024];
+        let size = reader
+            .read(&mut buffer)
+            .await
+            .context("Failed to read stream")?;
+        let request = String::from_utf8_lossy(&buffer[..size]);
         let mut parts = request.split("\r\n\r\n");
         let head = parts.next().context("Headline Error")?;
         // Body

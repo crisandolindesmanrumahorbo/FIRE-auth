@@ -3,8 +3,8 @@ use crate::req::Request;
 use crate::{auth::controller::AuthController, constants::NOT_FOUND};
 use anyhow::{Context, Result};
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::net::TcpListener;
 use tokio::sync::oneshot::Receiver;
 
 pub struct Server {
@@ -25,11 +25,13 @@ impl Server {
         loop {
             tokio::select! {
                 conn = listener.accept() => {
-                    let (stream, _) = conn?;
+                    let (mut stream, _) = conn?;
+
                     let controller = Arc::clone(&self.auth_controller);
 
                     tokio::spawn(async move {
-                        if let Err(e) = Self::handle_client(stream, &controller).await {
+                    let (reader, writer) = stream.split();
+                        if let Err(e) = Self::handle_client(reader, writer, &controller).await {
                             eprintln!("Connection error: {}", e);
                         }
                     });
@@ -44,17 +46,16 @@ impl Server {
         Ok(())
     }
 
-    async fn handle_client(
-        mut stream: TcpStream,
+    pub async fn handle_client<Reader, Writer>(
+        reader: Reader,
+        mut writer: Writer,
         auth_controller: &Arc<AuthController>,
-    ) -> Result<()> {
-        let mut buffer = [0; 1024];
-        let size = stream
-            .read(&mut buffer)
-            .await
-            .context("Failed to read stream")?;
-        let request = String::from_utf8_lossy(&buffer[..size]);
-        let request = Request::new(request)
+    ) -> Result<()>
+    where
+        Reader: AsyncRead + Unpin,
+        Writer: AsyncWrite + Unpin,
+    {
+        let request = Request::new(reader)
             .await
             .context("Failed to read request")?;
 
@@ -66,7 +67,7 @@ impl Server {
             _ => (NOT_FOUND.to_string(), "404 Not Found".to_string()),
         };
 
-        stream
+        writer
             .write_all(format!("{}{}", status_line, content).as_bytes())
             .await
             .context("Failed to write")
