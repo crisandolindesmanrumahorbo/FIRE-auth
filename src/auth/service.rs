@@ -1,6 +1,6 @@
 use super::repository::AuthRepository;
 use crate::{
-    constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, NOT_FOUND, OK_RESPONSE, UNAUTHORIZED},
+    constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, OK_RESPONSE, UNAUTHORIZED},
     error::CustomError,
     req::Request,
     utils::{
@@ -28,7 +28,7 @@ impl AuthService {
         self.respository.print_pool_stats();
         let req_user = match des_from_str(request) {
             Ok(user) => user,
-            Err(_) => return (NOT_FOUND.to_string(), "body not valid".to_string()),
+            Err(_) => return (UNAUTHORIZED.to_string(), "".to_string()),
         };
         let user_db = match self.respository.query_user(&req_user).await {
             Ok(user) => user,

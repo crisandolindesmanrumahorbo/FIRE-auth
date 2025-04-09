@@ -34,6 +34,9 @@ impl Request {
             .read(&mut buffer)
             .await
             .context("Failed to read stream")?;
+        if size >= 1024 {
+            return Err(anyhow::anyhow!("Request too large"));
+        }
         let request = String::from_utf8_lossy(&buffer[..size]);
         let mut parts = request.split("\r\n\r\n");
         let head = parts.next().context("Headline Error")?;

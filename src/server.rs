@@ -1,5 +1,5 @@
 use crate::auth::service::AuthService;
-use crate::constants::NOT_FOUND;
+use crate::constants::{BAD_REQUEST, NOT_FOUND};
 use crate::req::Method::{GET, POST};
 use crate::req::Request;
 use anyhow::{Context, Result};
@@ -13,7 +13,8 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(auth_svc: Arc<AuthService>) -> Self {
+    pub fn new(pool: sqlx::AnyPool) -> Self {
+        let auth_svc = Arc::new(AuthService::new(pool));
         Self { auth_svc }
     }
 
@@ -56,9 +57,18 @@ impl Server {
         Reader: AsyncRead + Unpin,
         Writer: AsyncWrite + Unpin,
     {
-        let request = Request::new(reader)
-            .await
-            .context("Failed to read request")?;
+        let request = match Request::new(reader).await {
+            Ok(req) => req,
+            Err(e) => {
+                println!("{}", e);
+                let _ = writer
+                    .write_all(format!("{}{}", BAD_REQUEST, e).as_bytes())
+                    .await
+                    .context("Failed to write");
+
+                return writer.flush().await.context("Failed to flush");
+            }
+        };
 
         // Route
         let (status_line, content) = match (&request.method, request.path.as_str()) {
