@@ -3,7 +3,9 @@ use crate::{
     constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, NOT_FOUND, OK_RESPONSE, UNAUTHORIZED},
     error::CustomError,
     req::Request,
-    utils::{is_password_valid, create_jwt, des_from_str, encrypt, extract_token, ser_to_str, verify_jwt},
+    utils::{
+        create_jwt, des_from_str, encrypt, extract_token, is_password_valid, ser_to_str, verify_jwt,
+    },
 };
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -103,10 +105,10 @@ impl AuthService {
         };
 
         match verify_jwt(&token) {
-            Ok(_) => return (OK_RESPONSE.to_string(), "".to_string()),
+            Ok(_) => (OK_RESPONSE.to_string(), "".to_string()),
             Err(err) => {
                 println!("Verification failed: {}", err);
-                return (UNAUTHORIZED.to_string(), "".to_string());
+                (UNAUTHORIZED.to_string(), "".to_string())
             }
         }
     }

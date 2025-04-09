@@ -12,14 +12,16 @@ pub struct Claims {
     pub exp: usize,
 }
 
-pub fn des_from_str<T: for<'a> Deserialize<'a> + Serialize>(string: &str) -> Result<T, ()> {
-    serde_json::from_str(&string.split("\r\n\r\n").last().unwrap_or_default()).map_err(|_| ())
+pub fn des_from_str<T: for<'a> Deserialize<'a> + Serialize>(
+    string: &str,
+) -> Result<T, serde_json::Error> {
+    serde_json::from_str(string.split("\r\n\r\n").last().unwrap_or_default())
 }
 
 pub fn ser_to_str<T: for<'a> Deserialize<'a> + Serialize>(
     t: &T,
 ) -> Result<String, serde_json::Error> {
-    Ok(serde_json::to_string(t)?)
+    serde_json::to_string(t)
 }
 
 pub fn encrypt(value: &str) -> String {
@@ -33,7 +35,7 @@ pub fn is_password_valid(value: &str, value1: &str) -> bool {
 fn get_private_key() -> Result<EncodingKey, CustomError> {
     let enc_key =
         EncodingKey::from_rsa_pem(get_config().jwt_private_key.replace("\\n", "\n").as_bytes())
-            .map_err(|e| CustomError::EncodeError(e))?;
+            .map_err(CustomError::EncodeError)?;
     Ok(enc_key)
 }
 

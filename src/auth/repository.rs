@@ -1,4 +1,3 @@
-
 use crate::error::CustomError;
 use anyhow::Result;
 
@@ -61,4 +60,3 @@ impl AuthRepository {
         Ok(row.0 as u64)
     }
 }
-

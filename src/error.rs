@@ -10,7 +10,7 @@ pub enum CustomError {
 
     #[error("Database error")]
     DBError(#[from] sqlx::Error),
-    
+
     #[error("User not found")]
     UserNotFound,
 

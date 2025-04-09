@@ -12,7 +12,7 @@ use tokio::sync::oneshot;
 async fn main() -> anyhow::Result<()> {
     // Init config and DB
     cfg::init_config();
-    let db_pool = Database::new_pool(&cfg::get_config().database_url).await;
+    let db_pool = Database::new_pool(cfg::get_config().database_url).await;
     let auth_controller = Arc::new(AuthController::new(db_pool.clone()));
 
     // Create shutdown channel

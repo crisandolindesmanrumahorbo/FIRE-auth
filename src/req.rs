@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-use tokio::io::{AsyncRead, AsyncReadExt};
 use std::collections::HashMap;
+use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[derive(Debug)]
 pub enum Method {
