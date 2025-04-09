@@ -1,6 +1,6 @@
 use common::{insert_db_user, setup_test_db};
 use stockbit_auth::{
-    auth::{controller::AuthController, model::User},
+    auth::{model::User, service::AuthService},
     constants::{OK_RESPONSE, UNAUTHORIZED},
     utils::{encrypt, ser_to_str},
 };
@@ -27,7 +27,7 @@ async fn login_user_success() {
         id: None,
     };
     insert_db_user(&auth_user.username, &encrypt(&auth_user.password), &pool).await;
-    let controller = AuthController::new(pool);
+    let controller = AuthService::new(pool);
 
     let response = controller
         .login(&ser_to_str(&auth_user).expect("failed to serialized"))
@@ -44,7 +44,7 @@ async fn login_user_unauthorized_not_registered() {
         password: "hashed_password".to_string(),
         id: None,
     };
-    let controller = AuthController::new(pool);
+    let controller = AuthService::new(pool);
 
     let response = controller
         .login(&ser_to_str(&non_auth_user).expect("failed to serialized"))
@@ -62,7 +62,7 @@ async fn login_user_unauthorized_wrong_password() {
         id: None,
     };
     insert_db_user(&auth_user.username, &encrypt("different password"), &pool).await;
-    let controller = AuthController::new(pool);
+    let controller = AuthService::new(pool);
 
     let response = controller
         .login(&ser_to_str(&auth_user).expect("failed to serialized"))
@@ -83,7 +83,7 @@ async fn handle_client_user_success() {
         id: None,
     };
     insert_db_user(&auth_user.username, &encrypt(&auth_user.password), &pool).await;
-    let ctrl = AuthController::new(pool);
+    let ctrl = AuthService::new(pool);
     let controller = std::sync::Arc::new(ctrl);
     let reader = tokio_test::io::Builder::new()
         .read(

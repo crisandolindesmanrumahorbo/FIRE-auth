@@ -18,8 +18,10 @@ pub struct AuthService {
 }
 
 impl AuthService {
-    pub fn new(respository: AuthRepository) -> Self {
-        AuthService { respository }
+    pub fn new(pool: sqlx::AnyPool) -> Self {
+        AuthService {
+            respository: AuthRepository::new(pool),
+        }
     }
 
     pub async fn login(&self, request: &str) -> (String, String) {
