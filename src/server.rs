@@ -72,8 +72,8 @@ impl Server {
 
         // Route
         let (status_line, content) = match (&request.method, request.path.as_str()) {
-            (POST, "/login") => auth_svc.login(&request.body).await,
-            (POST, "/register") => auth_svc.register(&request.body).await,
+            (POST, "/login") => auth_svc.login(&request).await,
+            (POST, "/register") => auth_svc.register(&request).await,
             (GET, "/validate") => auth_svc.validate(&request),
             _ => (NOT_FOUND.to_string(), "404 Not Found".to_string()),
         };

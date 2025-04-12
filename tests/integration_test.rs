@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use common::{insert_db_user, setup_test_db};
 use stockbit_auth::{
     auth::{model::User, service::AuthService},
     constants::{OK_RESPONSE, UNAUTHORIZED},
+    req::Request,
     utils::{encrypt, ser_to_str},
 };
 mod common;
@@ -27,11 +30,19 @@ async fn login_user_success() {
         id: None,
     };
     insert_db_user(&auth_user.username, &encrypt(&auth_user.password), &pool).await;
+    let body = Some(ser_to_str(&auth_user).expect("failed to serialized"));
     let controller = AuthService::new(pool);
 
     let response = controller
-        .login(&ser_to_str(&auth_user).expect("failed to serialized"))
+        .login(&Request {
+            body,
+            method: stockbit_auth::req::Method::POST,
+            path: "/login".to_string(),
+            params: None,
+            headers: HashMap::new(),
+        })
         .await;
+
 
     assert_eq!(response.0, OK_RESPONSE.to_string());
 }
@@ -44,10 +55,17 @@ async fn login_user_unauthorized_not_registered() {
         password: "hashed_password".to_string(),
         id: None,
     };
+    let body = Some(ser_to_str(&non_auth_user).expect("failed to serialized"));
     let controller = AuthService::new(pool);
 
     let response = controller
-        .login(&ser_to_str(&non_auth_user).expect("failed to serialized"))
+        .login(&Request {
+            body,
+            method: stockbit_auth::req::Method::POST,
+            path: "/login".to_string(),
+            params: None,
+            headers: HashMap::new(),
+        })
         .await;
 
     assert_eq!(response.0, UNAUTHORIZED.to_string());
@@ -62,10 +80,17 @@ async fn login_user_unauthorized_wrong_password() {
         id: None,
     };
     insert_db_user(&auth_user.username, &encrypt("different password"), &pool).await;
+    let body = Some(ser_to_str(&auth_user).expect("failed to serialized"));
     let controller = AuthService::new(pool);
 
     let response = controller
-        .login(&ser_to_str(&auth_user).expect("failed to serialized"))
+        .login(&Request {
+            body,
+            method: stockbit_auth::req::Method::POST,
+            path: "/login".to_string(),
+            params: None,
+            headers: HashMap::new(),
+        })
         .await;
 
     assert_eq!(response.0, UNAUTHORIZED.to_string());

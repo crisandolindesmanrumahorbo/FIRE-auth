@@ -42,7 +42,7 @@ fn get_private_key() -> Result<EncodingKey, CustomError> {
 pub fn create_jwt(user: User) -> Result<String> {
     let private_key = get_private_key().context("Failed Get Private Key")?;
     let expiration = Utc::now()
-        .checked_add_signed(Duration::minutes(1)) // Token valid for 24 hours
+        .checked_add_signed(Duration::hours(1)) // Token valid for 24 hours
         .expect("Invalid timestamp")
         .timestamp() as usize;
 

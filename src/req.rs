@@ -23,8 +23,9 @@ impl TryFrom<&str> for Method {
 pub struct Request {
     pub method: Method,
     pub path: String,
+    pub params: Option<std::collections::HashMap<String, String>>,
     pub headers: std::collections::HashMap<String, String>,
-    pub body: String,
+    pub body: Option<String>,
 }
 
 impl Request {
@@ -41,18 +42,19 @@ impl Request {
         let mut parts = request.split("\r\n\r\n");
         let head = parts.next().context("Headline Error")?;
         // Body
-        let body = parts.next().unwrap_or("");
+        let body = parts.next().map_or(None, |b| Some(b.to_string()));
 
         // Method and path
         let mut head_line = head.lines();
-        let first = head_line.next().context("Empty Request")?;
+        let first: &str = head_line.next().context("Empty Request")?;
         let mut request_parts: std::str::SplitWhitespace<'_> = first.split_whitespace();
         let method: Method = request_parts
             .next()
             .ok_or(anyhow::anyhow!("missing method"))
             .and_then(TryInto::try_into)
             .context("Missing Method")?;
-        let path = request_parts.next().context("No Path")?;
+        let url = request_parts.next().context("No Path")?;
+        let (path, params) = Self::extract_query_param(&url);
 
         // Headers
         let mut headers = HashMap::new();
@@ -63,9 +65,33 @@ impl Request {
         }
         Ok(Request {
             method,
-            path: path.into(),
+            path,
             headers,
-            body: body.into(),
+            body,
+            params,
         })
+    }
+
+    fn extract_query_param(url: &str) -> (String, Option<HashMap<String, String>>) {
+        // Find the query string
+        if let Some(pos) = url.find('?') {
+            let path = &url[0..pos];
+            let query_string = &url[pos + 1..]; // Get substring after '?'
+
+            // Parse query params into a HashMap
+            let params: HashMap<_, _> = query_string
+                .split('&')
+                .filter_map(|pair| {
+                    let mut kv = pair.split('=');
+                    Some((kv.next()?.to_string(), kv.next()?.to_string()))
+                })
+                .collect();
+
+            // Return the token if it exists
+            (path.to_string(), Some(params))
+            // params.get("token").map(|s| s.to_string())
+        } else {
+            (url.to_string(), None)
+        }
     }
 }

@@ -24,11 +24,14 @@ impl AuthService {
         }
     }
 
-    pub async fn login(&self, request: &str) -> (String, String) {
+    pub async fn login(&self, request: &Request) -> (String, String) {
         self.respository.print_pool_stats();
-        let req_user = match des_from_str(request) {
-            Ok(user) => user,
-            Err(_) => return (UNAUTHORIZED.to_string(), "".to_string()),
+        let req_user = match &request.body {
+            Some(body) => match des_from_str(body) {
+                Ok(user) => user,
+                Err(_) => return (UNAUTHORIZED.to_string(), "".to_string()),
+            },
+            None => return (UNAUTHORIZED.to_string(), "".to_string()),
         };
         let user_db = match self.respository.query_user(&req_user).await {
             Ok(user) => user,
@@ -71,10 +74,13 @@ impl AuthService {
         (OK_RESPONSE.to_string(), response_json)
     }
 
-    pub async fn register(&self, request: &str) -> (String, String) {
-        let req_user: super::model::User = match des_from_str(request) {
-            Ok(user) => user,
-            Err(_) => return (BAD_REQUEST.to_string(), "invalid body".to_string()),
+    pub async fn register(&self, request: &Request) -> (String, String) {
+        let req_user: super::model::User = match &request.body {
+            Some(body) => match des_from_str(body) {
+                Ok(user) => user,
+                Err(_) => return (UNAUTHORIZED.to_string(), "".to_string()),
+            },
+            None => return (UNAUTHORIZED.to_string(), "".to_string()),
         };
 
         let new_user = super::model::User {
