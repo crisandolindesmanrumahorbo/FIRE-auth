@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::collections::HashMap;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
@@ -15,7 +15,7 @@ impl TryFrom<&str> for Method {
         match value {
             "GET" => Ok(Method::GET),
             "POST" => Ok(Method::POST),
-            _ => Err(anyhow::anyhow!("Method not supported")),
+            _ => Err(anyhow!("Method not supported")),
         }
     }
 }
@@ -36,13 +36,13 @@ impl Request {
             .await
             .context("Failed to read stream")?;
         if size >= 1024 {
-            return Err(anyhow::anyhow!("Request too large"));
+            return Err(anyhow!("Request too large"));
         }
         let request = String::from_utf8_lossy(&buffer[..size]);
         let mut parts = request.split("\r\n\r\n");
         let head = parts.next().context("Headline Error")?;
         // Body
-        let body = parts.next().map_or(None, |b| Some(b.to_string()));
+        let body = parts.next().map(|b| b.to_string());
 
         // Method and path
         let mut head_line = head.lines();
@@ -50,11 +50,11 @@ impl Request {
         let mut request_parts: std::str::SplitWhitespace<'_> = first.split_whitespace();
         let method: Method = request_parts
             .next()
-            .ok_or(anyhow::anyhow!("missing method"))
+            .ok_or(anyhow!("missing method"))
             .and_then(TryInto::try_into)
             .context("Missing Method")?;
         let url = request_parts.next().context("No Path")?;
-        let (path, params) = Self::extract_query_param(&url);
+        let (path, params) = Self::extract_query_param(url);
 
         // Headers
         let mut headers = HashMap::new();
