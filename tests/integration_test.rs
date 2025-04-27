@@ -1,6 +1,6 @@
+use crate::common::insert_db_user;
+use common::setup_test_db;
 use std::collections::HashMap;
-
-use common::{insert_db_user, setup_test_db};
 use stockbit_auth::{
     auth::{model::User, service::AuthService},
     constants::{OK_RESPONSE, UNAUTHORIZED},
@@ -10,7 +10,7 @@ use stockbit_auth::{
 mod common;
 
 #[cfg(test)]
-pub async fn get_db_pool() -> sqlx::AnyPool {
+pub async fn get_db_pool() -> sqlx::SqlitePool {
     let pool = setup_test_db().await;
 
     // Check if table exists before inserting
@@ -21,6 +21,7 @@ pub async fn get_db_pool() -> sqlx::AnyPool {
     pool
 }
 
+#[cfg(feature = "test-sqlite")]
 #[tokio::test]
 async fn login_user_success() {
     let pool = get_db_pool().await;
@@ -31,9 +32,9 @@ async fn login_user_success() {
     };
     insert_db_user(&auth_user.username, &encrypt(&auth_user.password), &pool).await;
     let body = Some(ser_to_str(&auth_user).expect("failed to serialized"));
-    let controller = AuthService::new(pool);
+    let service = AuthService::new(pool);
 
-    let response = controller
+    let response = service
         .login(&Request {
             body,
             method: stockbit_auth::req::Method::POST,
@@ -43,10 +44,10 @@ async fn login_user_success() {
         })
         .await;
 
-
     assert_eq!(response.0, OK_RESPONSE.to_string());
 }
 
+#[cfg(feature = "test-sqlite")]
 #[tokio::test]
 async fn login_user_unauthorized_not_registered() {
     let pool = get_db_pool().await;
@@ -71,6 +72,7 @@ async fn login_user_unauthorized_not_registered() {
     assert_eq!(response.0, UNAUTHORIZED.to_string());
 }
 
+#[cfg(feature = "test-sqlite")]
 #[tokio::test]
 async fn login_user_unauthorized_wrong_password() {
     let pool = get_db_pool().await;
@@ -97,6 +99,7 @@ async fn login_user_unauthorized_wrong_password() {
     assert_eq!(response.1, "Username or password is incorrect".to_string());
 }
 
+#[cfg(feature = "test-sqlite")]
 #[tokio::test]
 async fn handle_client_user_success() {
     let pool = get_db_pool().await;
@@ -108,8 +111,8 @@ async fn handle_client_user_success() {
         id: None,
     };
     insert_db_user(&auth_user.username, &encrypt(&auth_user.password), &pool).await;
-    let ctrl = AuthService::new(pool);
-    let controller = std::sync::Arc::new(ctrl);
+    let svc = AuthService::new(pool.clone());
+    let controller = std::sync::Arc::new(svc);
     let reader = tokio_test::io::Builder::new()
         .read(
             format!(

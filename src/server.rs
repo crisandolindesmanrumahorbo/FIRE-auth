@@ -1,3 +1,4 @@
+use crate::auth::repo::DbConnection;
 use crate::auth::service::AuthService;
 use crate::constants::{BAD_REQUEST, NOT_FOUND};
 use crate::req::Method::{GET, POST};
@@ -8,13 +9,20 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot::Receiver;
 
-pub struct Server {
-    auth_svc: Arc<AuthService>,
+pub struct Server<DB>
+where
+    DB: DbConnection + Send + Sync + 'static,
+{
+    auth_svc: Arc<AuthService<DB>>,
 }
 
-impl Server {
-    pub fn new(pool: sqlx::AnyPool) -> Self {
+impl<DB> Server<DB>
+where
+    DB: DbConnection + Send + Sync + 'static,
+{
+    pub fn new(pool: DB) -> Self {
         let auth_svc = Arc::new(AuthService::new(pool));
+
         Self { auth_svc }
     }
 
@@ -33,7 +41,7 @@ impl Server {
 
                     tokio::spawn(async move {
                     let (reader, writer) = stream.split();
-                        if let Err(e) = Self::handle_client(reader, writer, &auth_svc).await {
+                        if let Err(e) = Server::handle_client(reader, writer, &auth_svc).await {
                             eprintln!("Connection error: {}", e);
                         }
                     });
@@ -51,7 +59,7 @@ impl Server {
     pub async fn handle_client<Reader, Writer>(
         reader: Reader,
         mut writer: Writer,
-        auth_svc: &Arc<AuthService>,
+        auth_svc: &Arc<AuthService<DB>>,
     ) -> Result<()>
     where
         Reader: AsyncRead + Unpin,

@@ -1,4 +1,4 @@
-use sqlx::Pool;
+use sqlx::{Pool, Postgres};
 use stockbit_auth::cfg::{self};
 use stockbit_auth::db::Database;
 use stockbit_auth::server::Server;
@@ -22,11 +22,12 @@ async fn main() -> anyhow::Result<()> {
 
     // Shutdown
     gracefully_shutdown(db_pool, shutdown_tx, server_handle).await;
+
     Ok(())
 }
 
 async fn gracefully_shutdown(
-    db_pool: Pool<sqlx::Any>,
+    db_pool: Pool<Postgres>,
     shutdown_tx: tokio::sync::oneshot::Sender<()>,
     server_handle: tokio::task::JoinHandle<Result<(), anyhow::Error>>,
 ) {

@@ -1,12 +1,11 @@
 use rand::Rng;
-use sqlx::{AnyPool, any::install_default_drivers};
+use sqlx::SqlitePool;
 
-pub async fn setup_test_db() -> AnyPool {
+pub async fn setup_test_db() -> SqlitePool {
     // init config
     stockbit_auth::cfg::init_config();
 
     // init db
-    install_default_drivers();
     let rand_str: String = rand::thread_rng()
         .sample_iter(&rand::distributions::Alphanumeric)
         .take(7)
@@ -15,7 +14,7 @@ pub async fn setup_test_db() -> AnyPool {
     let db_name = format!("test_{}", rand_str);
     let database_url = format!("sqlite:file:{}?mode=memory&cache=shared", db_name);
     // Create the pool (which will internally use shared memory DB)
-    let pool = AnyPool::connect(&database_url)
+    let pool = SqlitePool::connect(&database_url)
         .await
         .expect("Failed to create in-memory SQLite DB");
 
@@ -38,18 +37,18 @@ pub async fn setup_test_db() -> AnyPool {
     pool
 }
 
-pub async fn insert_db_user(username: &str, password: &str, pool: &AnyPool) {
-    sqlx::query(
+pub async fn insert_db_user(username: &str, password: &str, pool: &SqlitePool) {
+    let _row: (i32,) = sqlx::query_as(
         r#"
-            INSERT INTO users (username, password) 
-            VALUES ($1, $2) 
+            INSERT INTO users (username, password)
+            VALUES ($1, $2)
             RETURNING id"#,
     )
     .bind(username)
     .bind(password)
-    .execute(pool)
+    .fetch_one(pool)
     .await
-    .expect("Failed to insert test user");
+    .unwrap();
 }
 
 pub struct TestWriter<'a>(pub &'a mut Vec<u8>);

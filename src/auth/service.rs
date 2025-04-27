@@ -1,4 +1,3 @@
-use super::repository::AuthRepository;
 use crate::{
     constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, OK_RESPONSE, UNAUTHORIZED},
     error::CustomError,
@@ -8,24 +7,33 @@ use crate::{
     },
 };
 
+use super::repo::{AuthRepository, DbConnection};
+
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct Response {
     pub token: String,
 }
 
-pub struct AuthService {
-    respository: AuthRepository,
+pub struct AuthService<DB>
+where
+    DB: DbConnection + Send + Sync + 'static,
+{
+    repository: AuthRepository<DB>,
 }
 
-impl AuthService {
-    pub fn new(pool: sqlx::AnyPool) -> Self {
+impl<DB> AuthService<DB>
+where
+    DB: DbConnection + Send + Sync + 'static,
+{
+    pub fn new(pool: DB) -> Self {
         AuthService {
-            respository: AuthRepository::new(pool),
+            repository: AuthRepository::new(pool),
         }
     }
 
     pub async fn login(&self, request: &Request) -> (String, String) {
-        self.respository.print_pool_stats();
+        self.repository.print_pool_stats();
+
         let req_user = match &request.body {
             Some(body) => match des_from_str(body) {
                 Ok(user) => user,
@@ -33,7 +41,7 @@ impl AuthService {
             },
             None => return (UNAUTHORIZED.to_string(), "".to_string()),
         };
-        let user_db = match self.respository.query_user(&req_user).await {
+        let user_db = match self.repository.query_user(&req_user).await {
             Ok(user) => user,
             Err(why) => match why {
                 CustomError::UserNotFound => {
@@ -88,7 +96,7 @@ impl AuthService {
             password: encrypt(&req_user.password),
             id: None,
         };
-        match self.respository.insert_user(&new_user).await {
+        match self.repository.insert_user(&new_user).await {
             Ok(_) => (NO_CONTENT.to_string(), "".to_string()),
             Err(err) => match err {
                 CustomError::UsernameExists => {
