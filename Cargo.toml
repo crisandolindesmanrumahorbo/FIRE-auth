@@ -16,6 +16,7 @@ anyhow = { version = "1.0", default-features = false }
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.8", features = ["postgres", "runtime-tokio"] }
 async-trait = "0.1.88"
+request-http-parser = "0.1.1"
 
 [dev-dependencies]
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
@@ -25,4 +26,5 @@ tokio-test = "0.4.4"
 [features]
 default = []
 test-sqlite = []   # new feature only for test
+
 

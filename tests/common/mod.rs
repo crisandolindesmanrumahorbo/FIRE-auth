@@ -1,10 +1,10 @@
 use rand::Rng;
 use sqlx::SqlitePool;
+use stockbit_auth::cfg::init_config;
 
 pub async fn setup_test_db() -> SqlitePool {
     // init config
-    stockbit_auth::cfg::init_config();
-
+    init_config();
     // init db
     let rand_str: String = rand::thread_rng()
         .sample_iter(&rand::distributions::Alphanumeric)

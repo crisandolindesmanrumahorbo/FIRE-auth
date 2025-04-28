@@ -1,11 +1,11 @@
 use crate::auth::repo::DbConnection;
 use crate::auth::service::AuthService;
 use crate::constants::{BAD_REQUEST, NOT_FOUND};
-use crate::req::Method::{GET, POST};
-use crate::req::Request;
 use anyhow::{Context, Result};
+use request_http_parser::parser::{Method, Request};
+
 use std::sync::Arc;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot::Receiver;
 
@@ -57,7 +57,7 @@ where
     }
 
     pub async fn handle_client<Reader, Writer>(
-        reader: Reader,
+        mut reader: Reader,
         mut writer: Writer,
         auth_svc: &Arc<AuthService<DB>>,
     ) -> Result<()>
@@ -65,7 +65,23 @@ where
         Reader: AsyncRead + Unpin,
         Writer: AsyncWrite + Unpin,
     {
-        let request = match Request::new(reader).await {
+        let mut buffer = [0; 1024];
+        let size = reader
+            .read(&mut buffer)
+            .await
+            .context("Failed to read stream")?;
+        if size >= 1024 {
+            let _ = writer
+                .write_all(format!("{}{}", BAD_REQUEST, "Requets too large").as_bytes())
+                .await
+                .context("Failed to write");
+
+            let _ = writer.flush().await.context("Failed to flush");
+
+            return Ok(());
+        }
+        let request = String::from_utf8_lossy(&buffer[..size]);
+        let request = match Request::new(&request) {
             Ok(req) => req,
             Err(e) => {
                 println!("{}", e);
@@ -74,15 +90,16 @@ where
                     .await
                     .context("Failed to write");
 
-                return writer.flush().await.context("Failed to flush");
+                let _ = writer.flush().await.context("Failed to flush");
+                return Ok(());
             }
         };
 
         // Route
         let (status_line, content) = match (&request.method, request.path.as_str()) {
-            (POST, "/login") => auth_svc.login(&request).await,
-            (POST, "/register") => auth_svc.register(&request).await,
-            (GET, "/validate") => auth_svc.validate(&request),
+            (Method::POST, "/login") => auth_svc.login(&request).await,
+            (Method::POST, "/register") => auth_svc.register(&request).await,
+            (Method::GET, "/validate") => auth_svc.validate(&request),
             _ => (NOT_FOUND.to_string(), "404 Not Found".to_string()),
         };
 

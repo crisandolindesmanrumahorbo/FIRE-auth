@@ -1,7 +1,8 @@
+use request_http_parser::parser::Request;
+
 use crate::{
     constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, OK_RESPONSE, UNAUTHORIZED},
     error::CustomError,
-    req::Request,
     utils::{
         create_jwt, des_from_str, encrypt, extract_token, is_password_valid, ser_to_str, verify_jwt,
     },

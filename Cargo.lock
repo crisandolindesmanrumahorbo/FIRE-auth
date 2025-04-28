@@ -1139,6 +1139,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "request-http-parser"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e672897189d120a4c34055f2f0a281f50fd8d1454576d1fc216648c834d0da46"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1563,6 +1572,7 @@ dependencies = [
  "dotenvy",
  "jsonwebtoken",
  "rand",
+ "request-http-parser",
  "rsa",
  "serde",
  "serde_json",

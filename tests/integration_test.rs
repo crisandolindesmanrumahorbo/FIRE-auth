@@ -4,10 +4,10 @@ use std::collections::HashMap;
 use stockbit_auth::{
     auth::{model::User, service::AuthService},
     constants::{OK_RESPONSE, UNAUTHORIZED},
-    req::Request,
     utils::{encrypt, ser_to_str},
 };
 mod common;
+use request_http_parser::parser::Request;
 
 #[cfg(test)]
 pub async fn get_db_pool() -> sqlx::SqlitePool {
@@ -37,7 +37,7 @@ async fn login_user_success() {
     let response = service
         .login(&Request {
             body,
-            method: stockbit_auth::req::Method::POST,
+            method: request_http_parser::parser::Method::POST,
             path: "/login".to_string(),
             params: None,
             headers: HashMap::new(),
@@ -62,7 +62,7 @@ async fn login_user_unauthorized_not_registered() {
     let response = controller
         .login(&Request {
             body,
-            method: stockbit_auth::req::Method::POST,
+            method: request_http_parser::parser::Method::POST,
             path: "/login".to_string(),
             params: None,
             headers: HashMap::new(),
@@ -88,7 +88,7 @@ async fn login_user_unauthorized_wrong_password() {
     let response = controller
         .login(&Request {
             body,
-            method: stockbit_auth::req::Method::POST,
+            method: request_http_parser::parser::Method::POST,
             path: "/login".to_string(),
             params: None,
             headers: HashMap::new(),
