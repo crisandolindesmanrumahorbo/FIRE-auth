@@ -24,13 +24,22 @@ pub async fn get_db_pool() -> sqlx::SqlitePool {
 #[cfg(feature = "test-sqlite")]
 #[tokio::test]
 async fn login_user_success() {
+    use chrono::Utc;
+
     let pool = get_db_pool().await;
     let auth_user = User {
         username: "test_1".to_string(),
         password: "hashed_password".to_string(),
-        id: None,
+        user_id: None,
+        created_at: Utc::now(),
     };
-    insert_db_user(&auth_user.username, &encrypt(&auth_user.password), &pool).await;
+    insert_db_user(
+        &auth_user.username,
+        &encrypt(&auth_user.password),
+        auth_user.created_at,
+        &pool,
+    )
+    .await;
     let body = Some(ser_to_str(&auth_user).expect("failed to serialized"));
     let service = AuthService::new(pool);
 
@@ -50,11 +59,14 @@ async fn login_user_success() {
 #[cfg(feature = "test-sqlite")]
 #[tokio::test]
 async fn login_user_unauthorized_not_registered() {
+    use chrono::Utc;
+
     let pool = get_db_pool().await;
     let non_auth_user = User {
         username: "test_2".to_string(),
         password: "hashed_password".to_string(),
-        id: None,
+        user_id: None,
+        created_at: Utc::now(),
     };
     let body = Some(ser_to_str(&non_auth_user).expect("failed to serialized"));
     let controller = AuthService::new(pool);
@@ -75,13 +87,22 @@ async fn login_user_unauthorized_not_registered() {
 #[cfg(feature = "test-sqlite")]
 #[tokio::test]
 async fn login_user_unauthorized_wrong_password() {
+    use chrono::Utc;
+
     let pool = get_db_pool().await;
     let auth_user = User {
         username: "test_3".to_string(),
         password: "hashed_password".to_string(),
-        id: None,
+        user_id: None,
+        created_at: Utc::now(),
     };
-    insert_db_user(&auth_user.username, &encrypt("different password"), &pool).await;
+    insert_db_user(
+        &auth_user.username,
+        &encrypt("wrong password"),
+        auth_user.created_at,
+        &pool,
+    )
+    .await;
     let body = Some(ser_to_str(&auth_user).expect("failed to serialized"));
     let controller = AuthService::new(pool);
 
@@ -102,15 +123,24 @@ async fn login_user_unauthorized_wrong_password() {
 #[cfg(feature = "test-sqlite")]
 #[tokio::test]
 async fn handle_client_user_success() {
+    use chrono::Utc;
+
     let pool = get_db_pool().await;
     let username = "crisandolin";
     let password = "rumbo";
     let auth_user = User {
         username: username.to_string(),
         password: password.to_string(),
-        id: None,
+        user_id: None,
+        created_at: Utc::now(),
     };
-    insert_db_user(&auth_user.username, &encrypt(&auth_user.password), &pool).await;
+    insert_db_user(
+        &auth_user.username,
+        &encrypt(&auth_user.password),
+        auth_user.created_at,
+        &pool,
+    )
+    .await;
     let svc = AuthService::new(pool.clone());
     let controller = std::sync::Arc::new(svc);
     let reader = tokio_test::io::Builder::new()

@@ -15,7 +15,7 @@ pub struct Claims {
 pub fn des_from_str<T: for<'a> Deserialize<'a> + Serialize>(
     string: &str,
 ) -> Result<T, serde_json::Error> {
-    serde_json::from_str(string.split("\r\n\r\n").last().unwrap_or_default())
+    serde_json::from_str(string)
 }
 
 pub fn ser_to_str<T: for<'a> Deserialize<'a> + Serialize>(
@@ -47,7 +47,7 @@ pub fn create_jwt(user: User) -> Result<String> {
         .timestamp() as usize;
 
     let claims = Claims {
-        sub: user.username,
+        sub: user.user_id.unwrap().to_string(),
         exp: expiration,
     };
 

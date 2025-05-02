@@ -14,20 +14,23 @@ pub trait DbConnection: Send + Sync {
 #[async_trait]
 impl DbConnection for sqlx::PgPool {
     async fn fetch_user(&self, username: &str) -> Result<User, sqlx::Error> {
-        sqlx::query_as::<_, User>(r#"SELECT id, username, password FROM users WHERE username = $1"#)
-            .bind(username)
-            .fetch_one(self)
-            .await
+        sqlx::query_as::<_, User>(
+            r#"SELECT user_id, username, password, created_at FROM users WHERE username = $1"#,
+        )
+        .bind(username)
+        .fetch_one(self)
+        .await
     }
     async fn insert_user(&self, user: &User) -> Result<u64, sqlx::Error> {
         let row: (i32,) = sqlx::query_as(
             r#"
-            INSERT INTO users (username, password) 
-            VALUES ($1, $2) 
-            RETURNING id"#,
+            INSERT INTO users (username, password, created_at) 
+            VALUES ($1, $2, $3) 
+            RETURNING user_id"#,
         )
         .bind(&user.username)
         .bind(&user.password)
+        .bind(&user.created_at)
         .fetch_one(self)
         .await?;
         Ok(row.0 as u64)
@@ -47,20 +50,23 @@ impl DbConnection for sqlx::PgPool {
 #[async_trait]
 impl DbConnection for sqlx::SqlitePool {
     async fn fetch_user(&self, username: &str) -> Result<User, sqlx::Error> {
-        sqlx::query_as::<_, User>(r#"SELECT id, username, password FROM users WHERE username = ?1"#)
-            .bind(username)
-            .fetch_one(self)
-            .await
+        sqlx::query_as::<_, User>(
+            r#"SELECT user_id, username, password, created_at FROM users WHERE username = ?1"#,
+        )
+        .bind(username)
+        .fetch_one(self)
+        .await
     }
     async fn insert_user(&self, user: &User) -> Result<u64, sqlx::Error> {
         let row: (i32,) = sqlx::query_as(
             r#"
-            INSERT INTO users (username, password)
-            VALUES ($1, $2)
-            RETURNING id"#,
+            INSERT INTO users (username, password, created_at)
+            VALUES ($1, $2, $3)
+            RETURNING user_id"#,
         )
         .bind(&user.username)
         .bind(&user.password)
+        .bind(&user.created_at)
         .fetch_one(self)
         .await?;
         Ok(row.0 as u64)
@@ -89,14 +95,11 @@ impl<DB: DbConnection> AuthRepository<DB> {
         self.db.print_pool_stats();
     }
 
-    pub async fn query_user(&self, user_login: &User) -> Result<User, CustomError> {
-        self.db
-            .fetch_user(&user_login.username)
-            .await
-            .map_err(|e| match e {
-                sqlx::Error::RowNotFound => CustomError::UserNotFound,
-                _ => CustomError::DBError(e),
-            })
+    pub async fn query_user(&self, username: &str) -> Result<User, CustomError> {
+        self.db.fetch_user(username).await.map_err(|e| match e {
+            sqlx::Error::RowNotFound => CustomError::UserNotFound,
+            _ => CustomError::DBError(e),
+        })
     }
 
     pub async fn insert_user(&self, new_user: &User) -> Result<u64, CustomError> {

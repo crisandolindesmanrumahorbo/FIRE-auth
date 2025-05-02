@@ -1,6 +1,8 @@
+use chrono::Utc;
 use request_http_parser::parser::Request;
 
 use crate::{
+    auth::model::Login,
     constants::{BAD_REQUEST, INTERNAL_ERROR, NO_CONTENT, OK_RESPONSE, UNAUTHORIZED},
     error::CustomError,
     utils::{
@@ -35,14 +37,14 @@ where
     pub async fn login(&self, request: &Request) -> (String, String) {
         self.repository.print_pool_stats();
 
-        let req_user = match &request.body {
+        let req_user: Login = match &request.body {
             Some(body) => match des_from_str(body) {
                 Ok(user) => user,
                 Err(_) => return (UNAUTHORIZED.to_string(), "".to_string()),
             },
             None => return (UNAUTHORIZED.to_string(), "".to_string()),
         };
-        let user_db = match self.repository.query_user(&req_user).await {
+        let user_db = match self.repository.query_user(&req_user.username).await {
             Ok(user) => user,
             Err(why) => match why {
                 CustomError::UserNotFound => {
@@ -84,18 +86,19 @@ where
     }
 
     pub async fn register(&self, request: &Request) -> (String, String) {
-        let req_user: super::model::User = match &request.body {
+        let req_user: Login = match &request.body {
             Some(body) => match des_from_str(body) {
                 Ok(user) => user,
-                Err(_) => return (UNAUTHORIZED.to_string(), "".to_string()),
+                Err(_) => return (BAD_REQUEST.to_string(), "".to_string()),
             },
-            None => return (UNAUTHORIZED.to_string(), "".to_string()),
+            None => return (BAD_REQUEST.to_string(), "".to_string()),
         };
 
         let new_user = super::model::User {
             username: req_user.username,
             password: encrypt(&req_user.password),
-            id: None,
+            user_id: None,
+            created_at: Utc::now(),
         };
         match self.repository.insert_user(&new_user).await {
             Ok(_) => (NO_CONTENT.to_string(), "".to_string()),

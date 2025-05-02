@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use rand::Rng;
 use sqlx::SqlitePool;
 use stockbit_auth::cfg::init_config;
@@ -22,9 +23,10 @@ pub async fn setup_test_db() -> SqlitePool {
     sqlx::query(
         "
         CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            password TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         ",
     )
@@ -37,15 +39,21 @@ pub async fn setup_test_db() -> SqlitePool {
     pool
 }
 
-pub async fn insert_db_user(username: &str, password: &str, pool: &SqlitePool) {
+pub async fn insert_db_user(
+    username: &str,
+    password: &str,
+    created_at: DateTime<Utc>,
+    pool: &SqlitePool,
+) {
     let _row: (i32,) = sqlx::query_as(
         r#"
-            INSERT INTO users (username, password)
-            VALUES ($1, $2)
-            RETURNING id"#,
+            INSERT INTO users (username, password, created_at)
+            VALUES ($1, $2, $3)
+            RETURNING user_id"#,
     )
     .bind(username)
     .bind(password)
+    .bind(created_at)
     .fetch_one(pool)
     .await
     .unwrap();

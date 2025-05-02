@@ -40,7 +40,7 @@ where
                     let auth_svc = Arc::clone(&self.auth_svc);
 
                     tokio::spawn(async move {
-                    let (reader, writer) = stream.split();
+                        let (reader, writer) = stream.split();
                         if let Err(e) = Server::handle_client(reader, writer, &auth_svc).await {
                             eprintln!("Connection error: {}", e);
                         }
