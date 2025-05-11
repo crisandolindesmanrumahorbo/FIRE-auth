@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct Claims {
     pub sub: String,
     pub exp: usize,
+    pub username: String,
 }
 
 pub fn des_from_str<T: for<'a> Deserialize<'a> + Serialize>(
@@ -49,6 +50,7 @@ pub fn create_jwt(user: User) -> Result<String> {
     let claims = Claims {
         sub: user.user_id.unwrap().to_string(),
         exp: expiration,
+        username: user.username.to_string(),
     };
 
     encode(
