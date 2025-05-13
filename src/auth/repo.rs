@@ -1,13 +1,14 @@
 use async_trait::async_trait;
 
-use crate::error::CustomError;
+use crate::{account::model::Account, error::CustomError};
 
 use super::model::User;
 
 #[async_trait]
 pub trait DbConnection: Send + Sync {
     async fn fetch_user(&self, username: &str) -> Result<User, sqlx::Error>;
-    async fn insert_user(&self, user: &User) -> Result<u64, sqlx::Error>;
+    async fn insert_user(&self, user: &User) -> Result<i32, sqlx::Error>;
+    async fn insert_account(&self, account: &Account) -> Result<i32, sqlx::Error>;
     fn print_pool_stats(&self);
 }
 
@@ -21,7 +22,7 @@ impl DbConnection for sqlx::PgPool {
         .fetch_one(self)
         .await
     }
-    async fn insert_user(&self, user: &User) -> Result<u64, sqlx::Error> {
+    async fn insert_user(&self, user: &User) -> Result<i32, sqlx::Error> {
         let row: (i32,) = sqlx::query_as(
             r#"
             INSERT INTO users (username, password, created_at) 
@@ -33,7 +34,21 @@ impl DbConnection for sqlx::PgPool {
         .bind(&user.created_at)
         .fetch_one(self)
         .await?;
-        Ok(row.0 as u64)
+        Ok(row.0)
+    }
+    async fn insert_account(&self, account: &Account) -> Result<i32, sqlx::Error> {
+        let row: (i32,) = sqlx::query_as(
+            r#"
+            INSERT INTO accounts (user_id, balance, invested_value) 
+            VALUES ($1, $2, $3, $4) 
+            RETURNING account_id"#,
+        )
+        .bind(&account.user_id)
+        .bind(&account.balance)
+        .bind(&account.invested_value)
+        .fetch_one(self)
+        .await?;
+        Ok(row.0)
     }
     fn print_pool_stats(&self) {
         println!("[DB POOL STATS]");
@@ -57,7 +72,7 @@ impl DbConnection for sqlx::SqlitePool {
         .fetch_one(self)
         .await
     }
-    async fn insert_user(&self, user: &User) -> Result<u64, sqlx::Error> {
+    async fn insert_user(&self, user: &User) -> Result<i32, sqlx::Error> {
         let row: (i32,) = sqlx::query_as(
             r#"
             INSERT INTO users (username, password, created_at)
@@ -69,7 +84,21 @@ impl DbConnection for sqlx::SqlitePool {
         .bind(&user.created_at)
         .fetch_one(self)
         .await?;
-        Ok(row.0 as u64)
+        Ok(row.0)
+    }
+    async fn insert_account(&self, account: &Account) -> Result<i32, sqlx::Error> {
+        let row: (i32,) = sqlx::query_as(
+            r#"
+            INSERT INTO accounts (user_id, balance, invested_value) 
+            VALUES ($1, $2, $3, $4) 
+            RETURNING account_id"#,
+        )
+        .bind(&account.user_id)
+        .bind(&account.balance)
+        .bind(&account.invested_value)
+        .fetch_one(self)
+        .await?;
+        Ok(row.0)
     }
     fn print_pool_stats(&self) {
         println!("[DB POOL STATS]");
@@ -102,10 +131,26 @@ impl<DB: DbConnection> AuthRepository<DB> {
         })
     }
 
-    pub async fn insert_user(&self, new_user: &User) -> Result<u64, CustomError> {
-        self.db.insert_user(new_user).await.map_err(|e| match e {
-            sqlx::Error::Database(err) if err.is_unique_violation() => CustomError::UsernameExists,
-            e => CustomError::DBError(e),
-        })
+    pub async fn insert_user(&self, new_user: &User) -> Result<i32, CustomError> {
+        let user_id = match self.db.insert_user(new_user).await {
+            Ok(user_id) => user_id,
+            Err(e) => match e {
+                sqlx::Error::Database(err) if err.is_unique_violation() => {
+                    return Err(CustomError::UsernameExists);
+                }
+                _ => return Err(CustomError::DBError(e)),
+            },
+        };
+        let new_account = Account::new(user_id);
+        match self.db.insert_account(&new_account).await {
+            Ok(user_id) => user_id,
+            Err(e) => match e {
+                sqlx::Error::Database(err) if err.is_unique_violation() => {
+                    return Err(CustomError::AccountExists);
+                }
+                _ => return Err(CustomError::DBError(e)),
+            },
+        };
+        Ok(user_id)
     }
 }

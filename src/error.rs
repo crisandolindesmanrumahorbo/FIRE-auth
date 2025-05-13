@@ -16,6 +16,9 @@ pub enum CustomError {
 
     #[error("Username already exists")]
     UsernameExists,
+
+    #[error("Account already exists")]
+    AccountExists,
 }
 
 impl Debug for CustomError {
