@@ -40,7 +40,7 @@ impl DbConnection for sqlx::PgPool {
         let row: (i32,) = sqlx::query_as(
             r#"
             INSERT INTO accounts (user_id, balance, invested_value) 
-            VALUES ($1, $2, $3, $4) 
+            VALUES ($1, $2, $3) 
             RETURNING account_id"#,
         )
         .bind(&account.user_id)
