@@ -1,3 +1,13 @@
+## How to run
+```
+cargo run
+```
+
+## Validate
+![alt text](image.png)
+
+## Unit Testing
+
 Integration test instead unit testing and E2E
 
 - error often occured when in between code (integration test)
