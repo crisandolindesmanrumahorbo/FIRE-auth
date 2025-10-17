@@ -5,6 +5,15 @@ CREATE TABLE users (
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+
+CREATE TABLE accounts (
+  account_id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  balance BIGINT NOT NULL,
+  invested_value BIGINT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
 CREATE TABLE products (
   product_id SERIAL PRIMARY KEY,
   symbol VARCHAR(10) UNIQUE NOT NULL,
@@ -12,6 +21,9 @@ CREATE TABLE products (
   tags VARCHAR(100),
   last_updated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+
+CREATE INDEX idx_accounst_user ON accounts(user_id);
 
 CREATE TABLE portfolios (
   portfolio_id SERIAL PRIMARY KEY,
@@ -21,7 +33,6 @@ CREATE TABLE portfolios (
   lot INT NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users(user_id),
   FOREIGN KEY (product_id) REFERENCES products(product_id),
-  CONSTRAINT unique_user_product UNIQUE (user_id, product_id)
 );
 
 
